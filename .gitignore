@@ -15,3 +15,7 @@ Thumbs.db
 # Future database files
 *.db
 *.sqlite
+
+# NFL data cache
+.nfl_data_py/
+*.parquet
