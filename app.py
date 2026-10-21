@@ -44,5 +44,9 @@ def pbp_demo():
     })
 
 
-if __name__ == "__main__":
+@app.route('/trade-evaluation')
+def trade_evaluation():
+    return "<h1>Trade Evaluation</h1><p>Evaluate trades here</p>"
+
+if __name__ == '__main__':
     app.run(debug=True)
