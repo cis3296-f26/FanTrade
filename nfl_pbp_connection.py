@@ -22,7 +22,7 @@ def get_play_by_play_data(
     """
     Fetches NFL play-by-play data using nfl_data_py.
 
-    :param seasons: List of year integers (e.g., [20245, 2025]). Defaults to current season.
+    :param seasons: List of year integers (e.g., [2024, 2025]). Defaults to current season.
     :param columns: Specific subset of columns to retrieve.
     :param team: Filter plays by home or away team abbreviation (e.g., 'PIT', 'PHI').
     :param downcast: Reduces float memory footprint if True.
