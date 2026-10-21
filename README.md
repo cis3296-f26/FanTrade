@@ -148,4 +148,6 @@ python -m pip install -r requirements.txt
 
 ## Deployment
 
-Deployment to Vercel is planned. The live application URL will be added after deployment is complete and verified.
+The application is deployed to vercel.
+URL:
+https://fan-trade.vercel.app
