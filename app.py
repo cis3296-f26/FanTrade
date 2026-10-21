@@ -9,7 +9,7 @@ COLS = ["game_id", "season", "week", "home_team", "away_team", "play_type", "yar
 
 @app.route("/")
 def home():
-    return '<h1>FanTrade Demo</h1><p><a href="/sleeper?username=GSM4">Sleeper</a> | <a href="/pbp?team=PHI&season=2025">PBP</a></p>'
+    return '<h1>FanTrade Demo</h1><p><a href="/sleeper?username=GSM4">Sleeper</a> | <a href="/pbp?team=PHI&season=2025">PBP</a> | <a href="/trade-evaluation">Trade Evaluation</a></p>'
 
 
 @app.route("/sleeper")
