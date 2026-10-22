@@ -4,6 +4,13 @@ venv/
 ENV/
 env/
 
+# Virtual environments
+.venv/
+.venv311/
+venv/
+ENV/
+env/
+
 # Python cache
 __pycache__/
 *.py[cod]
