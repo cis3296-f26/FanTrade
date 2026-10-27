@@ -1,7 +1,11 @@
+import asyncio
 import os
+from dotenv import load_dotenv
 import libsql_client
 
-def get_db():
+load_dotenv()
+
+async def get_db():
     """Establishes a connection to Turso (SQLite in the cloud)."""
     url = os.getenv("TURSO_DATABASE_URL")
     auth_token = os.getenv("TURSO_AUTH_TOKEN")
@@ -11,12 +15,13 @@ def get_db():
         
     return libsql_client.create_client(url=url, auth_token=auth_token)
 
-def init_db():
-    """Creates database tables for users and user-linked data."""
-    client = get_db()
-    
+async def init_db():
+    """Creates database tables for users and user-linked data tables async."""
+    client = await get_db()
+
+    async with client:
     # 1. Create Users Table
-    client.execute("""
+        await client.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
@@ -26,7 +31,7 @@ def init_db():
     """)
     
     # 2. Create Linked User Data Table (e.g. saving fantasy leagues to a user)
-    client.execute("""
+        await client.execute("""
         CREATE TABLE IF NOT EXISTS user_leagues (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -35,8 +40,7 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
     """)
-    client.close()
     print("Database tables initialized successfully!")
 
 if __name__ == "__main__":
-    init_db()
+    asyncio.run(init_db())
