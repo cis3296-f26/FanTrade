@@ -1,18 +1,24 @@
 # Virtual environments
 .venv/
+.venv311/
 venv/
 ENV/
 env/
 
-# Python cache
+# Environment secrets
+.env
+.env.*
+
+# Python cache and local cache
 __pycache__/
 *.py[cod]
+.sleeper_players_cache.json
 
 # OS metadata
 .DS_Store
 Thumbs.db
 
-# Future database files
+# Database files
 *.db
 *.sqlite
 
