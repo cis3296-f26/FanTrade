@@ -19,3 +19,6 @@ Thumbs.db
 # NFL data cache
 .nfl_data_py/
 *.parquet
+
+# Frontend
+frontend/node_modules
