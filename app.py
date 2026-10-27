@@ -1,9 +1,11 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 from sleeper_connection import get_user_leagues, get_current_nfl_state
 from nfl_pbp_connection import get_play_by_play_data, get_summary_stats
 
 app = Flask(__name__)
 PBP_CACHE = {}
+CORS(app, origins=["http://localhost:5173"])
 COLS = ["game_id", "season", "week", "home_team", "away_team", "play_type", "yards_gained", "desc"]
 
 
