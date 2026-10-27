@@ -10,6 +10,8 @@ from sleeper_connection import (
 from espn_connection import get_espn_league
 from nfl_pbp_connection import get_play_by_play_data, get_summary_stats
 
+from db import get_db
+
 app = Flask(__name__)
 PBP_CACHE = {}
 COLS = ["game_id", "season", "week", "home_team", "away_team", "play_type", "yards_gained", "desc"]
@@ -103,6 +105,73 @@ def pbp_demo():
 def trade_evaluation():
     return "<h1>Trade Evaluation</h1><p>Evaluate trades here</p>"
 
+# User Database Routes
+
+@app.route("/api/users/create", methods=["POST"])
+def create_user():
+    """Creates a new user in the Turso SQLite database."""
+    data = request.get_json()
+    username = data.get("username")
+    email = data.get("email")
+    
+    if not username or not email:
+        return jsonify({"error": "Username and email are required"}), 400
+        
+    client = get_db()
+    try:
+        res = client.execute(
+            "INSERT INTO users (username, email) VALUES (?, ?)",
+            [username, email]
+        )
+        return jsonify({"success": True, "user_id": res.last_insert_rowid, "username": username}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        client.close()
+
+
+@app.route("/api/users/<int:user_id>/link-league", methods=["POST"])
+def link_league_to_user(user_id):
+    """Links user data (a Sleeper or ESPN league) to a user in the database."""
+    data = request.get_json()
+    league_id = data.get("league_id")
+    platform = data.get("platform", "sleeper")
+    
+    if not league_id:
+        return jsonify({"error": "League ID is required"}), 400
+        
+    client = get_db()
+    try:
+        client.execute(
+            "INSERT INTO user_leagues (user_id, league_id, platform) VALUES (?, ?, ?)",
+            [user_id, league_id, platform]
+        )
+        return jsonify({"success": True, "message": f"Linked {platform} league {league_id} to user {user_id}"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        client.close()
+
+
+@app.route("/api/users/<int:user_id>", methods=["GET"])
+def get_user_profile(user_id):
+    """Fetches user info along with all their linked database records."""
+    client = get_db()
+    try:
+        user_res = client.execute("SELECT id, username, email FROM users WHERE id = ?", [user_id])
+        if not user_res.rows:
+            return jsonify({"error": "User not found"}), 404
+            
+        user = dict(user_res.rows[0])
+        
+        leagues_res = client.execute("SELECT league_id, platform FROM user_leagues WHERE user_id = ?", [user_id])
+        user["saved_leagues"] = [dict(r) for r in leagues_res.rows]
+        
+        return jsonify({"user": user})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        client.close()
 
 if __name__ == '__main__':
     app.run(debug=True)
