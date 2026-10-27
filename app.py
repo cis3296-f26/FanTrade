@@ -105,73 +105,71 @@ def pbp_demo():
 def trade_evaluation():
     return "<h1>Trade Evaluation</h1><p>Evaluate trades here</p>"
 
-# User Database Routes
+
 
 @app.route("/api/users/create", methods=["POST"])
-def create_user():
-    """Creates a new user in the Turso SQLite database."""
-    data = request.get_json()
+async def create_user():
+    data = request.get_json() or {}
     username = data.get("username")
     email = data.get("email")
-    
+
     if not username or not email:
         return jsonify({"error": "Username and email are required"}), 400
-        
-    client = get_db()
+
     try:
-        res = client.execute(
-            "INSERT INTO users (username, email) VALUES (?, ?)",
-            [username, email]
-        )
-        return jsonify({"success": True, "user_id": res.last_insert_rowid, "username": username}), 201
+        client = await get_db()
+        async with client:
+            res = await client.execute(
+                "INSERT INTO users (username, email) VALUES (?, ?)",
+                [username, email]
+            )
+            return jsonify({"success": True, "user_id": res.last_insert_rowid, "username": username}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-    finally:
-        client.close()
-
 
 @app.route("/api/users/<int:user_id>/link-league", methods=["POST"])
-def link_league_to_user(user_id):
-    """Links user data (a Sleeper or ESPN league) to a user in the database."""
-    data = request.get_json()
+async def link_league_to_user(user_id):
+    data = request.get_json() or {}
     league_id = data.get("league_id")
     platform = data.get("platform", "sleeper")
-    
+
     if not league_id:
         return jsonify({"error": "League ID is required"}), 400
-        
-    client = get_db()
+
     try:
-        client.execute(
-            "INSERT INTO user_leagues (user_id, league_id, platform) VALUES (?, ?, ?)",
-            [user_id, league_id, platform]
-        )
-        return jsonify({"success": True, "message": f"Linked {platform} league {league_id} to user {user_id}"}), 201
+        client = await get_db()
+        async with client:
+            await client.execute(
+                "INSERT INTO user_leagues (user_id, league_id, platform) VALUES (?, ?, ?)",
+                [user_id, league_id, platform]
+            )
+            return jsonify({"success": True, "message": f"Linked {platform} league {league_id} to user {user_id}"}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-    finally:
-        client.close()
-
 
 @app.route("/api/users/<int:user_id>", methods=["GET"])
-def get_user_profile(user_id):
-    """Fetches user info along with all their linked database records."""
-    client = get_db()
+async def get_user_profile(user_id):
     try:
-        user_res = client.execute("SELECT id, username, email FROM users WHERE id = ?", [user_id])
-        if not user_res.rows:
-            return jsonify({"error": "User not found"}), 404
-            
-        user = dict(user_res.rows[0])
-        
-        leagues_res = client.execute("SELECT league_id, platform FROM user_leagues WHERE user_id = ?", [user_id])
-        user["saved_leagues"] = [dict(r) for r in leagues_res.rows]
-        
-        return jsonify({"user": user})
+        client = await get_db()
+        async with client:
+            user_res = await client.execute("SELECT id, username, email FROM users WHERE id = ?", [user_id])
+            if not user_res.rows:
+                return jsonify({"error": "User not found"}), 404
+
+            user = {
+                "id": user_res.rows[0][0],
+                "username": user_res.rows[0][1],
+                "email": user_res.rows[0][2]
+            }
+
+            leagues_res = await client.execute("SELECT league_id, platform FROM user_leagues WHERE user_id = ?", [user_id])
+            user["saved_leagues"] = [
+                {"league_id": r[0], "platform": r[1]} for r in leagues_res.rows
+            ]
+
+            return jsonify({"user": user})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        client.close()
 
 if __name__ == '__main__':
     app.run(debug=True)
