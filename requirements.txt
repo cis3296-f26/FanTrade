@@ -2,4 +2,3 @@ Flask
 requests>=2.31.0
 nfl_data_py>=0.3.1
 pandas>=2.0.0
-__pycache__
