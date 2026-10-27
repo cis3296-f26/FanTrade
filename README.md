@@ -146,6 +146,12 @@ If `requirements.txt` changes after pulling new code, reinstall dependencies bef
 python -m pip install -r requirements.txt
 ```
 
+For full local testing, please run the following command:
+
+```bash
+npx vercel dev
+```
+
 ## Deployment
 
 The application is deployed to vercel.
