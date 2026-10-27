@@ -1,5 +1,3 @@
-from flask import Flask, jsonify, request
-from flask_cors import CORS
 from backend.sleeper_connection import (
     get_user_leagues,
     get_current_nfl_state,
