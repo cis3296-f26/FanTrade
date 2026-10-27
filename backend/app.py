@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from sleeper_connection import (
+from backend.sleeper_connection import (
     get_user_leagues,
     get_current_nfl_state,
     get_league_rosters,
@@ -8,7 +8,7 @@ from sleeper_connection import (
     get_all_nfl_teams,
     search_nfl_players
 )
-from espn_connection import get_espn_league
+from backend.espn_connection import get_espn_league
 from nfl_pbp_connection import get_play_by_play_data, get_summary_stats
 
 app = Flask(__name__)
