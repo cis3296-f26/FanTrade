@@ -10,6 +10,8 @@ from sleeper_connection import (
 from espn_connection import get_espn_league
 from nfl_pbp_connection import get_play_by_play_data, get_summary_stats
 
+from db import get_db
+
 app = Flask(__name__)
 api = Blueprint("api", __name__, url_prefix="/api")
 
@@ -87,7 +89,7 @@ def pbp_demo():
         "season": season,
         "team": team or None,
         "summary": get_summary_stats(df),
-        "sample_plays": df.head(5).to_dict(orient="records"),
+        "sample_plays": df.head(5).to_dict(orient="records")
     })
 
 
@@ -96,6 +98,91 @@ def trade_evaluation():
     return jsonify({"message": "Evaluate trades here"})
 
 
+# ------------------------------------------------------------------------------
+# USER DATABASE ROUTES (Async Turso Connection)
+# ------------------------------------------------------------------------------
+
+@api.route("/users/create", methods=["POST"])
+async def create_user():
+    data = request.get_json() or {}
+    username = data.get("username")
+    email = data.get("email")
+
+    if not username or not email:
+        return jsonify({"error": "Username and email are required"}), 400
+
+    try:
+        client = await get_db()
+        async with client:
+            res = await client.execute(
+                "INSERT INTO users (username, email) VALUES (?, ?)",
+                [username, email]
+            )
+            return jsonify({
+                "success": True,
+                "user_id": res.last_insert_rowid,
+                "username": username
+            }), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@api.route("/users/<int:user_id>/link-league", methods=["POST"])
+async def link_league_to_user(user_id):
+    data = request.get_json() or {}
+    league_id = data.get("league_id")
+    platform = data.get("platform", "sleeper")
+
+    if not league_id:
+        return jsonify({"error": "League ID is required"}), 400
+
+    try:
+        client = await get_db()
+        async with client:
+            await client.execute(
+                "INSERT INTO user_leagues (user_id, league_id, platform) VALUES (?, ?, ?)",
+                [user_id, league_id, platform]
+            )
+            return jsonify({
+                "success": True,
+                "message": f"Linked {platform} league {league_id} to user {user_id}"
+            }), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@api.route("/users/<int:user_id>", methods=["GET"])
+async def get_user_profile(user_id):
+    try:
+        client = await get_db()
+        async with client:
+            user_res = await client.execute(
+                "SELECT id, username, email FROM users WHERE id = ?",
+                [user_id]
+            )
+            if not user_res.rows:
+                return jsonify({"error": "User not found"}), 404
+
+            user = {
+                "id": user_res.rows[0][0],
+                "username": user_res.rows[0][1],
+                "email": user_res.rows[0][2]
+            }
+
+            leagues_res = await client.execute(
+                "SELECT league_id, platform FROM user_leagues WHERE user_id = ?",
+                [user_id]
+            )
+            user["saved_leagues"] = [
+                {"league_id": r[0], "platform": r[1]} for r in leagues_res.rows
+            ]
+
+            return jsonify({"user": user})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# Register the API Blueprint with Flask app
 app.register_blueprint(api)
 
 if __name__ == "__main__":
