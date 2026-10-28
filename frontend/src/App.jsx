@@ -1,17 +1,16 @@
-import { useEffect, useState } from "react";
+import LeagueSearch from "./components/LeagueSearch";
+import "./Search.css";
 
 export default function App() {
-  const [status, setStatus] = useState("checking...");
+  return (
+    <main className="search-app">
+      <header className="page-header">
+        <h1>FanTrade</h1>
+        <p>Find fantasy teams and explore their rosters.</p>
+      </header>
 
-  useEffect(() => {
-    fetch("/api/health")
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data) => setStatus(`Flask says: ${data.status}`))
-      .catch((err) => setStatus(`Failed: ${err.message}`));
-  }, []);
-
-  return <h1>{status}</h1>;
+      {/* This component handles the flow from username to searchable rosters. */}
+      <LeagueSearch />
+    </main>
+  );
 }
