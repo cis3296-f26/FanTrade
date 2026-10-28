@@ -1,0 +1,226 @@
+/* Keep these styles inside the search screen. */
+.search-app {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.search-app * {
+  box-sizing: border-box;
+}
+
+/* Give the page title some separation from the form. */
+.search-app .page-header {
+  margin-bottom: 36px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-app h1 {
+  margin: 0 0 12px;
+  font-size: clamp(32px, 6vw, 44px);
+  line-height: 1.15;
+}
+
+.search-app h2 {
+  margin: 0 0 12px;
+  font-size: 24px;
+}
+
+.search-app h3 {
+  margin: 0 0 12px;
+  color: var(--text-h);
+  font-size: 18px;
+}
+
+.search-app p {
+  margin: 12px 0;
+}
+
+.search-app .muted,
+.search-app .team-meta {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+/* Keep each input and its button beside each other on larger screens. */
+.search-app .username-form,
+.search-app .search-controls {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  margin: 24px 0 16px;
+}
+
+.search-app .field {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.search-app label {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.search-app input,
+.search-app select,
+.search-app button {
+  min-height: 44px;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.search-app input,
+.search-app select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.search-app button {
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  background: #6d28d9;
+  color: #fff;
+  cursor: pointer;
+}
+
+.search-app .secondary-button {
+  border-color: var(--border);
+  background: var(--code-bg);
+  color: var(--text-h);
+}
+
+.search-app button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Make keyboard focus easy to see. */
+.search-app input:focus-visible,
+.search-app select:focus-visible,
+.search-app button:focus-visible,
+.search-app summary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.search-app .league-selection {
+  margin-top: 24px;
+}
+
+.search-app .roster-search {
+  margin-top: 32px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+
+/* Each fantasy team gets its own expandable card. */
+.search-app .team-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.search-app .team-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.search-app summary {
+  padding: 18px;
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.search-app .team-name {
+  font-weight: 700;
+}
+
+.search-app .team-meta {
+  display: block;
+  margin-top: 6px;
+}
+
+.search-app .match-summary {
+  display: block;
+  margin-top: 10px;
+  color: var(--text-h);
+  font-size: 0.9rem;
+}
+
+.search-app .roster-details {
+  padding: 0 18px 18px;
+  border-top: 1px solid var(--border);
+}
+
+/* Show starters and other players in separate columns when space allows. */
+.search-app .roster-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.search-app .player-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.search-app .player-list li {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Highlight matches without hiding the rest of the roster. */
+.search-app .matched-player {
+  background: var(--accent-bg);
+  color: var(--text-h);
+}
+
+.search-app .match-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.search-app .empty-message {
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+
+.search-app .error-message {
+  padding: 14px;
+  border-left: 4px solid #dc2626;
+  background: var(--code-bg);
+  color: var(--text-h);
+}
+
+/* Stack the controls and roster sections on smaller screens. */
+@media (max-width: 600px) {
+  .search-app {
+    padding: 24px 16px 40px;
+  }
+
+  .search-app .username-form,
+  .search-app .search-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-app .roster-columns {
+    grid-template-columns: 1fr;
+  }
+}
