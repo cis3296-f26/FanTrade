@@ -1,0 +1,42 @@
+.navbar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  padding: 28px 48px;
+  z-index: 10;
+  background: transparent;
+}
+
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 18px;
+  font-weight: 400;
+  color: #F5F7FA;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  opacity: 0.9;
+  transition: opacity 0.15s ease;
+}
+
+.navbar-logo:hover {
+  opacity: 1;
+}
+
+.navbar-helmet {
+  height: 28px;
+  width: auto;
+}
+
+@media (max-width: 600px) {
+  .navbar {
+    padding: 20px 24px;
+  }
+
+  .navbar-helmet {
+    height: 24px;
+  }
+}
