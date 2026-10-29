@@ -1,3 +1,5 @@
+import "./TeamRoster.css";
+
 export default function TeamRoster({ team, matchingPlayers }) {
   const players = team.players ?? [];
 

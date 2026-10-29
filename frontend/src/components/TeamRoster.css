@@ -1,0 +1,91 @@
+.search-app .team-card {
+  border: 1px solid rgba(245, 247, 250, 0.09);
+  border-radius: 6px;
+  background: rgba(245, 247, 250, 0.03);
+  overflow-wrap: anywhere;
+  transition: border-color 0.15s ease;
+}
+
+.search-app .team-card:hover {
+  border-color: rgba(245, 247, 250, 0.16);
+}
+
+.search-app summary {
+  padding: 18px 20px;
+  color: #F5F7FA;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  user-select: none;
+}
+
+.search-app summary::-webkit-details-marker {
+  display: none;
+}
+
+.search-app .team-name {
+  font-size: 17px;
+  color: #F5F7FA;
+}
+
+.search-app .team-meta {
+  display: block;
+  font-size: 13px;
+  color: rgba(245, 247, 250, 0.45);
+}
+
+.search-app .match-summary {
+  display: block;
+  font-size: 13px;
+  color: #3D9F97;
+}
+
+.search-app .roster-details {
+  padding: 0 20px 20px;
+  border-top: 1px solid rgba(245, 247, 250, 0.07);
+}
+
+.search-app .roster-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  margin-top: 20px;
+}
+
+.search-app .player-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.search-app .player-list li {
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(245, 247, 250, 0.06);
+  font-size: 15px;
+  color: rgba(245, 247, 250, 0.75);
+}
+
+.search-app .player-list li:last-child {
+  border-bottom: none;
+}
+
+.search-app .matched-player {
+  color: #F5F7FA !important;
+}
+
+.search-app .match-label {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #3D9F97;
+}
+
+@media (max-width: 600px) {
+  .search-app .roster-columns {
+    grid-template-columns: 1fr;
+  }
+}
