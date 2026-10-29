@@ -1,40 +1,56 @@
 .search-app .team-card {
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid rgba(245, 247, 250, 0.09);
+  border-radius: 6px;
+  background: rgba(245, 247, 250, 0.03);
   overflow-wrap: anywhere;
+  transition: border-color 0.15s ease;
+}
+
+.search-app .team-card:hover {
+  border-color: rgba(245, 247, 250, 0.16);
 }
 
 .search-app summary {
-  padding: 18px;
-  color: var(--text-h);
+  padding: 18px 20px;
+  color: #F5F7FA;
   cursor: pointer;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  user-select: none;
+}
+
+.search-app summary::-webkit-details-marker {
+  display: none;
 }
 
 .search-app .team-name {
-  font-weight: 700;
+  font-size: 17px;
+  color: #F5F7FA;
 }
 
 .search-app .team-meta {
   display: block;
-  margin-top: 6px;
+  font-size: 13px;
+  color: rgba(245, 247, 250, 0.45);
 }
 
 .search-app .match-summary {
   display: block;
-  margin-top: 10px;
-  color: var(--text-h);
-  font-size: 0.9rem;
+  font-size: 13px;
+  color: #3D9F97;
 }
 
 .search-app .roster-details {
-  padding: 0 18px 18px;
-  border-top: 1px solid var(--border);
+  padding: 0 20px 20px;
+  border-top: 1px solid rgba(245, 247, 250, 0.07);
 }
 
 .search-app .roster-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
+  gap: 32px;
   margin-top: 20px;
 }
 
@@ -45,20 +61,27 @@
 }
 
 .search-app .player-list li {
-  padding: 10px 8px;
-  border-bottom: 1px solid var(--border);
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(245, 247, 250, 0.06);
+  font-size: 15px;
+  color: rgba(245, 247, 250, 0.75);
+}
+
+.search-app .player-list li:last-child {
+  border-bottom: none;
 }
 
 .search-app .matched-player {
-  background: var(--accent-bg);
-  color: var(--text-h);
+  color: #F5F7FA !important;
 }
 
 .search-app .match-label {
   display: block;
-  margin-top: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  margin-top: 2px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #3D9F97;
 }
 
 @media (max-width: 600px) {

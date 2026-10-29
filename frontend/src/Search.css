@@ -1,47 +1,42 @@
+.search-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+
 .search-app {
   width: 100%;
-  max-width: 960px;
+  max-width: 720px;
   margin: 0 auto;
-  padding: 32px 24px 64px;
-  box-sizing: border-box;
-  text-align: left;
-}
-
-.search-app * {
-  box-sizing: border-box;
-}
-
-.search-app .page-header {
-  margin-bottom: 36px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--border);
-}
-
-.search-app h1 {
-  margin: 0 0 12px;
-  font-size: clamp(32px, 6vw, 44px);
-  line-height: 1.15;
+  padding: 48px 48px 80px;
+  flex: 1;
 }
 
 .search-app h2 {
-  margin: 0 0 12px;
-  font-size: 24px;
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 400;
+  color: #F5F7FA;
 }
 
 .search-app h3 {
   margin: 0 0 12px;
-  color: var(--text-h);
-  font-size: 18px;
+  font-size: 15px;
+  font-weight: 400;
+  color: rgba(245, 247, 250, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .search-app p {
-  margin: 12px 0;
+  margin: 8px 0;
+  color: rgba(245, 247, 250, 0.65);
 }
 
 .search-app .muted,
 .search-app .team-meta {
-  color: var(--text);
-  font-size: 0.9rem;
+  color: rgba(245, 247, 250, 0.5);
+  font-size: 14px;
 }
 
 .search-app .field {
@@ -53,37 +48,62 @@
 }
 
 .search-app label {
-  color: var(--text-h);
-  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(245, 247, 250, 0.5);
 }
 
 .search-app input,
 .search-app select,
 .search-app button {
   min-height: 44px;
-  border-radius: 6px;
+  border-radius: 4px;
   font: inherit;
+  font-size: 16px;
 }
 
 .search-app input,
 .search-app select {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text-h);
+  padding: 10px 14px;
+  border: 1px solid rgba(245, 247, 250, 0.15);
+  background: rgba(245, 247, 250, 0.06);
+  color: #F5F7FA;
+  transition: border-color 0.15s ease;
+}
+
+.search-app input:hover,
+.search-app select:hover {
+  border-color: rgba(245, 247, 250, 0.25);
+}
+
+.search-app input::placeholder {
+  color: rgba(245, 247, 250, 0.3);
 }
 
 .search-app button {
-  padding: 10px 18px;
-  border: 1px solid transparent;
-  background: #6d28d9;
-  color: #fff;
+  padding: 10px 22px;
+  border: none;
+  background: #369C6E;
+  color: #F5F7FA;
+  font-weight: 400;
   cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  white-space: nowrap;
+}
+
+.search-app button:hover:not(:disabled) {
+  background: #3D9F97;
+  transform: translateY(-1px);
+}
+
+.search-app button:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .search-app button:disabled {
-  opacity: 0.55;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -91,25 +111,28 @@
 .search-app select:focus-visible,
 .search-app button:focus-visible,
 .search-app summary:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 3px;
+  outline: 2px solid #3D9F97;
+  outline-offset: 2px;
 }
 
 .search-app .error-message {
-  padding: 14px;
-  border-left: 4px solid #dc2626;
-  background: var(--code-bg);
-  color: var(--text-h);
+  padding: 14px 16px;
+  border-left: 3px solid #f87171;
+  background: rgba(248, 113, 113, 0.08);
+  color: #fca5a5;
+  border-radius: 0 4px 4px 0;
 }
 
 .search-app .empty-message {
   padding: 16px;
-  border: 1px dashed var(--border);
-  border-radius: 6px;
+  border: 1px dashed rgba(245, 247, 250, 0.2);
+  border-radius: 4px;
+  color: rgba(245, 247, 250, 0.45);
+  font-size: 15px;
 }
 
 @media (max-width: 600px) {
   .search-app {
-    padding: 24px 16px 40px;
+    padding: 32px 20px 60px;
   }
 }

@@ -1,26 +1,32 @@
 .search-app .roster-search {
-  margin-top: 32px;
-  padding-top: 28px;
-  border-top: 1px solid var(--border);
+  margin-top: 40px;
+  padding-top: 36px;
+  border-top: 1px solid rgba(245, 247, 250, 0.08);
 }
 
 .search-app .search-controls {
   display: flex;
   align-items: end;
   gap: 12px;
-  margin: 24px 0 16px;
+  margin: 20px 0 12px;
 }
 
 .search-app .team-list {
-  display: grid;
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin-top: 20px;
 }
 
 .search-app .secondary-button {
-  border-color: var(--border);
-  background: var(--code-bg);
-  color: var(--text-h);
+  background: transparent !important;
+  border: 1px solid rgba(245, 247, 250, 0.2) !important;
+  color: rgba(245, 247, 250, 0.6) !important;
+}
+
+.search-app .secondary-button:hover:not(:disabled) {
+  background: rgba(245, 247, 250, 0.06) !important;
+  transform: none !important;
 }
 
 .search-app .request-error {
