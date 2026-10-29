@@ -1,0 +1,17 @@
+.search-app .username-form {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  margin: 24px 0 16px;
+}
+
+.search-app .league-selection {
+  margin-top: 24px;
+}
+
+@media (max-width: 600px) {
+  .search-app .username-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

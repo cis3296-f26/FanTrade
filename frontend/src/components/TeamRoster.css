@@ -1,0 +1,68 @@
+.search-app .team-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.search-app summary {
+  padding: 18px;
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.search-app .team-name {
+  font-weight: 700;
+}
+
+.search-app .team-meta {
+  display: block;
+  margin-top: 6px;
+}
+
+.search-app .match-summary {
+  display: block;
+  margin-top: 10px;
+  color: var(--text-h);
+  font-size: 0.9rem;
+}
+
+.search-app .roster-details {
+  padding: 0 18px 18px;
+  border-top: 1px solid var(--border);
+}
+
+.search-app .roster-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.search-app .player-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.search-app .player-list li {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-app .matched-player {
+  background: var(--accent-bg);
+  color: var(--text-h);
+}
+
+.search-app .match-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .search-app .roster-columns {
+    grid-template-columns: 1fr;
+  }
+}

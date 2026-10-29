@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchJson } from "../lib/api";
 import TeamRoster from "./TeamRoster";
+import "./RosterSearch.css";
 
 // Use the same cleanup for both the query and the values being searched.
 function normalize(value) {
