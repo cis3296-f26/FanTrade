@@ -7,6 +7,9 @@ BASE_URL = "https://api.sleeper.app/v1"
 _PLAYER_CACHE = {}
 _STATS_CACHE = {}
 _PROJECTIONS_CACHE = {}
+_WEEKLY_PROJECTIONS_CACHE = {}
+_WEEKLY_STATS_CACHE = {}
+_SCHEDULE_CACHE = {}
 
 # 32 NFL Teams Mapping
 NFL_TEAMS = {
@@ -113,6 +116,59 @@ def _load_season_projections(season: str):
     return _PROJECTIONS_CACHE.get(s_str, {})
 
 
+def _load_weekly_projections(season: str, week: int):
+    """Helper to fetch and cache regular season weekly projections from Sleeper."""
+    global _WEEKLY_PROJECTIONS_CACHE
+    if not week:
+        return {}
+    key = f"{season}_{week}"
+    if key not in _WEEKLY_PROJECTIONS_CACHE:
+        try:
+            resp = requests.get(f"{BASE_URL}/projections/nfl/regular/{season}/{week}", timeout=10)
+            _WEEKLY_PROJECTIONS_CACHE[key] = resp.json() if resp.status_code == 200 else {}
+        except Exception:
+            _WEEKLY_PROJECTIONS_CACHE[key] = {}
+    return _WEEKLY_PROJECTIONS_CACHE.get(key, {})
+
+
+def _load_weekly_stats(season: str, week: int):
+    """Helper to fetch and cache regular season weekly actual stats from Sleeper."""
+    global _WEEKLY_STATS_CACHE
+    if not week:
+        return {}
+    key = f"{season}_{week}"
+    if key not in _WEEKLY_STATS_CACHE:
+        try:
+            resp = requests.get(f"{BASE_URL}/stats/nfl/regular/{season}/{week}", timeout=10)
+            _WEEKLY_STATS_CACHE[key] = resp.json() if resp.status_code == 200 else {}
+        except Exception:
+            _WEEKLY_STATS_CACHE[key] = {}
+    return _WEEKLY_STATS_CACHE.get(key, {})
+
+
+def _load_weekly_matchups(season: str, week: int):
+    """Helper to determine each NFL team's weekly matchup (e.g. 'vs PHI', '@ KC', 'BYE')."""
+    global _SCHEDULE_CACHE
+    if not week:
+        return {}
+    key = f"{season}_{week}"
+    if key not in _SCHEDULE_CACHE:
+        matchups = {}
+        try:
+            import nfl_data_py as nfl
+            sched = nfl.import_schedules([int(season)])
+            week_games = sched[sched["week"] == int(week)]
+            for _, row in week_games.iterrows():
+                home = str(row["home_team"]).strip().replace("LA", "LAR")
+                away = str(row["away_team"]).strip().replace("LA", "LAR")
+                matchups[home] = f"vs {away}"
+                matchups[away] = f"@ {home}"
+        except Exception:
+            pass
+        _SCHEDULE_CACHE[key] = matchups
+    return _SCHEDULE_CACHE.get(key, {})
+
+
 def get_player_name(player_id: str) -> str:
     """
     Looks up a Sleeper player ID (e.g. '421' -> 'Matthew Stafford (QB - LAR)').
@@ -175,12 +231,19 @@ def search_nfl_players(query: str, limit: int = 15, season: str = None, position
             actual_pts = round(s.get("pts_ppr") or 0.0, 2)
             proj_pts = round(proj.get("pts_ppr") or 0.0, 2)
 
+            avatar_url = (
+                f"https://sleepercdn.com/images/team_logos/nfl/{pid.lower()}.png"
+                if pid.isalpha() and len(pid) <= 3
+                else f"https://sleepercdn.com/content/nfl/players/thumb/{pid}.jpg"
+            )
+
             matches.append({
                 "player_id": pid,
                 "name": p.get("full_name"),
                 "position": pos,
                 "team": p.get("team") or "FA",
                 "number": p.get("number"),
+                "avatar_url": avatar_url,
                 "status": p.get("status", "Active"),
                 "season": str(season),
                 "stats": {
@@ -354,24 +417,68 @@ def get_league_rosters(league_id: str, resolve_names: bool = True):
     if rosters_resp.status_code != 200:
         return {"error": f"Failed to retrieve rosters for league {clean_id}"}
 
+    # Determine league scoring setting (Half-PPR, PPR, or Standard)
+    rec_scoring = league_data.get("scoring_settings", {}).get("rec", 1.0)
+    pts_key = "pts_half_ppr" if rec_scoring == 0.5 else ("pts_std" if rec_scoring == 0 else "pts_ppr")
+
+    # Fetch NFL state, weekly projections, weekly stats, matchups, and player metadata
+    nfl_state = get_current_nfl_state()
+    active_season = nfl_state.get("season") or str(league_data.get("season", "2026"))
+    active_week = nfl_state.get("week")
+    weekly_proj = _load_weekly_projections(active_season, active_week)
+    weekly_stats = _load_weekly_stats(active_season, active_week)
+    weekly_matchups = _load_weekly_matchups(active_season, active_week)
+    all_players = _load_players()
+
     cleaned_rosters = []
     for r in rosters_resp.json():
         owner_id = str(r.get("owner_id", ""))
         owner_info = user_map.get(owner_id, {})
         settings = r.get("settings") or {}
-
         fpts = round(settings.get("fpts", 0) + (settings.get("fpts_decimal", 0) / 100.0), 2)
-        raw_players = r.get("players") or []
         starters_ids = set(r.get("starters") or [])
 
         players_list = []
-        for pid in raw_players:
-            p_name = get_player_name(pid) if resolve_names else f"Player {pid}"
-            is_starter = pid in starters_ids
+        for pid in r.get("players") or []:
+            p_id = str(pid).strip()
+
+            if p_id.isalpha() and len(p_id) <= 3:
+                team = p_id.upper()
+                full_name = f"{NFL_TEAMS.get(team, team)} Defense"
+                pos, avatar = "DEF", f"https://sleepercdn.com/images/team_logos/nfl/{team.lower()}.png"
+                injury = "Healthy"
+            else:
+                p = all_players.get(p_id, {})
+                full_name = p.get("full_name") or f"Player {p_id}"
+                pos, team = p.get("position", "N/A"), p.get("team", "FA")
+                avatar = f"https://sleepercdn.com/content/nfl/players/thumb/{p_id}.jpg"
+                injury = p.get("injury_status") or ("Healthy" if p.get("status") == "Active" else p.get("status", "Healthy"))
+
+            p_proj_data = weekly_proj.get(p_id) or (weekly_proj.get(team) if pos == "DEF" else {}) or {}
+            p_stat_data = weekly_stats.get(p_id) or (weekly_stats.get(team) if pos == "DEF" else {}) or {}
+
+            proj = p_proj_data.get(pts_key)
+            if proj is None:
+                proj = p_proj_data.get("pts_ppr")
+
+            act = p_stat_data.get(pts_key)
+            if act is None:
+                act = p_stat_data.get("pts_ppr")
+
+            matchup = weekly_matchups.get(team, "BYE" if team in NFL_TEAMS else None)
+
             players_list.append({
                 "player_id": pid,
-                "name": p_name,
-                "is_starter": is_starter
+                "name": f"{full_name} ({pos} - {team})" if pos != "N/A" and team != "FA" else full_name,
+                "full_name": full_name,
+                "position": pos,
+                "team": team,
+                "avatar_url": avatar,
+                "injury_status": injury,
+                "matchup": matchup,
+                "actual_points": round(act, 2) if act is not None else None,
+                "projected_points": round(proj, 2) if proj is not None else None,
+                "is_starter": pid in starters_ids
             })
 
         cleaned_rosters.append({
