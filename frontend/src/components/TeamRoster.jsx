@@ -35,7 +35,11 @@ export default function TeamRoster({ team, matchingPlayers }) {
                     </span>
                   </div>
                   <div className="player-meta">
-                    <span className="pos-badge">{p.position}</span>
+                    <span className="pos-badge">
+                      {p.slot && p.slot !== "BN" && p.slot !== p.position
+                        ? `${p.slot} (${p.position})`
+                        : p.position}
+                    </span>
                     <span>{p.team}</span>
                     {p.matchup && <span className="matchup-badge">{p.matchup}</span>}
                   </div>

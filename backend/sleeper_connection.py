@@ -430,18 +430,23 @@ def get_league_rosters(league_id: str, resolve_names: bool = True):
     weekly_matchups = _load_weekly_matchups(active_season, active_week)
     all_players = _load_players()
 
+    roster_positions = league_data.get("roster_positions") or []
+    starter_slots = [pos for pos in roster_positions if pos != "BN"]
+    pos_order_map = {"QB": 1, "RB": 2, "WR": 3, "TE": 4, "K": 5, "DEF": 6}
+
     cleaned_rosters = []
     for r in rosters_resp.json():
         owner_id = str(r.get("owner_id", ""))
         owner_info = user_map.get(owner_id, {})
         settings = r.get("settings") or {}
         fpts = round(settings.get("fpts", 0) + (settings.get("fpts_decimal", 0) / 100.0), 2)
-        starters_ids = set(r.get("starters") or [])
+        
+        starters_raw = r.get("starters") or []
+        starters_set = set(str(pid).strip() for pid in starters_raw if pid and str(pid).strip() != "0")
+        all_pids = [str(pid).strip() for pid in (r.get("players") or [])]
 
-        players_list = []
-        for pid in r.get("players") or []:
+        def _format_player(pid, is_starter=False, slot="BN"):
             p_id = str(pid).strip()
-
             if p_id.isalpha() and len(p_id) <= 3:
                 team = p_id.upper()
                 full_name = f"{NFL_TEAMS.get(team, team)} Defense"
@@ -467,19 +472,44 @@ def get_league_rosters(league_id: str, resolve_names: bool = True):
 
             matchup = weekly_matchups.get(team, "BYE" if team in NFL_TEAMS else None)
 
-            players_list.append({
-                "player_id": pid,
+            return {
+                "player_id": p_id,
                 "name": f"{full_name} ({pos} - {team})" if pos != "N/A" and team != "FA" else full_name,
                 "full_name": full_name,
                 "position": pos,
                 "team": team,
+                "slot": slot,
                 "avatar_url": avatar,
                 "injury_status": injury,
                 "matchup": matchup,
                 "actual_points": round(act, 2) if act is not None else None,
                 "projected_points": round(proj, 2) if proj is not None else None,
-                "is_starter": pid in starters_ids
-            })
+                "is_starter": is_starter
+            }
+
+        # Starters strictly follow starting lineup slots (QB -> RB -> WR -> TE -> FLEX -> K -> DEF)
+        starters_list = []
+        for idx, pid in enumerate(starters_raw):
+            p_clean = str(pid).strip()
+            if not p_clean or p_clean == "0":
+                continue
+            slot = starter_slots[idx] if idx < len(starter_slots) else "STARTER"
+            starters_list.append(_format_player(p_clean, is_starter=True, slot=slot))
+
+        # Bench sorted by position priority (QB -> RB -> WR -> TE -> K -> DEF) then points
+        bench_list = []
+        for pid in all_pids:
+            if pid not in starters_set:
+                bench_list.append(_format_player(pid, is_starter=False, slot="BN"))
+
+        bench_list.sort(key=lambda p: (
+            pos_order_map.get(p["position"], 99),
+            -(p["projected_points"] or 0),
+            -(p["actual_points"] or 0),
+            p["full_name"]
+        ))
+
+        players_list = starters_list + bench_list
 
         cleaned_rosters.append({
             "roster_id": r.get("roster_id"),
