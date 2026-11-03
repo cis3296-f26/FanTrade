@@ -66,7 +66,7 @@ export default function HomePage() {
         <div className="home-section-inner home-about-inner">
           <div className="home-about-label">about the project</div>
           <p className="home-about-body">
-            fan trade. brings together Sleeper league data and NFL
+            fantrade brings together Sleeper league data and NFL
             play-by-play statistics to support trade analysis. Look up
             any Sleeper username to browse their leagues, explore every
             roster, and dig into the player-level numbers behind each
