@@ -77,7 +77,7 @@ export default function HomePage() {
 
       {/* ── Footer ── */}
       <footer className="home-footer">
-        <span>fan trade. &copy; {YEAR}</span>
+        <span>fantrade. &copy; {YEAR}</span>
       </footer>
     </div>
   );
