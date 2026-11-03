@@ -2,23 +2,17 @@
   border: 1px solid rgba(245, 247, 250, 0.09);
   border-radius: 6px;
   background: rgba(245, 247, 250, 0.03);
-  overflow-wrap: anywhere;
-  transition: border-color 0.15s ease;
-}
-
-.search-app .team-card:hover {
-  border-color: rgba(245, 247, 250, 0.16);
+  margin-bottom: 8px;
 }
 
 .search-app summary {
-  padding: 18px 20px;
+  padding: 16px 20px;
   color: #F5F7FA;
   cursor: pointer;
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  user-select: none;
 }
 
 .search-app summary::-webkit-details-marker {
@@ -27,17 +21,16 @@
 
 .search-app .team-name {
   font-size: 17px;
+  font-weight: 500;
   color: #F5F7FA;
 }
 
 .search-app .team-meta {
-  display: block;
   font-size: 13px;
   color: rgba(245, 247, 250, 0.45);
 }
 
 .search-app .match-summary {
-  display: block;
   font-size: 13px;
   color: #3D9F97;
 }
@@ -50,8 +43,8 @@
 .search-app .roster-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 32px;
-  margin-top: 20px;
+  gap: 36px;
+  margin-top: 16px;
 }
 
 .search-app .player-list {
@@ -60,32 +53,139 @@
   list-style: none;
 }
 
-.search-app .player-list li {
-  padding: 9px 0;
+/* Individual Player Row */
+.search-app .player-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 4px;
   border-bottom: 1px solid rgba(245, 247, 250, 0.06);
-  font-size: 15px;
-  color: rgba(245, 247, 250, 0.75);
+  border-radius: 4px;
 }
 
-.search-app .player-list li:last-child {
+.search-app .player-row:last-child {
   border-bottom: none;
 }
 
-.search-app .matched-player {
-  color: #F5F7FA !important;
+.search-app .player-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
-.search-app .match-label {
-  display: block;
-  margin-top: 2px;
+.search-app .player-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(245, 247, 250, 0.06);
+  border: 1px solid rgba(245, 247, 250, 0.12);
+  flex-shrink: 0;
+}
+
+.search-app .player-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.search-app .player-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.search-app .player-name {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: #F5F7FA;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-app .player-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  color: rgba(245, 247, 250, 0.5);
+}
+
+.search-app .pos-badge {
+  font-weight: 600;
+  color: #369C6E;
+}
+
+.search-app .matchup-badge {
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(61, 159, 151, 0.15);
   color: #3D9F97;
 }
 
-@media (max-width: 600px) {
+/* Injury & Health Badges */
+.search-app .injury-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+}
+
+.search-app .injury-badge.healthy {
+  background: rgba(54, 156, 110, 0.15);
+  color: #369C6E;
+}
+
+.search-app .injury-badge.injured {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+/* Actual Points vs Projected Points */
+.search-app .player-scores {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.search-app .score-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 34px;
+}
+
+.search-app .score-val {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #F5F7FA;
+  font-variant-numeric: tabular-nums;
+}
+
+.search-app .score-lbl {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: rgba(245, 247, 250, 0.4);
+}
+
+.search-app .score-col.muted-score .score-val {
+  color: rgba(245, 247, 250, 0.5);
+}
+
+.search-app .matched-player {
+  background: rgba(61, 159, 151, 0.1) !important;
+}
+
+@media (max-width: 768px) {
   .search-app .roster-columns {
     grid-template-columns: 1fr;
+    gap: 20px;
   }
 }
