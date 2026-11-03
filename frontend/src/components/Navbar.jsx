@@ -9,7 +9,7 @@ export default function Navbar() {
     <nav className="navbar">
       <div className="navbar-logo" onClick={() => navigate("/")}>
         <img src={helmet} alt="" className="navbar-helmet" aria-hidden="true" />
-        <span>fan trade.</span>
+        <span>fantrade.</span>
       </div>
     </nav>
   );
