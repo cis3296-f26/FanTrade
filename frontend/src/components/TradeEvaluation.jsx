@@ -64,11 +64,11 @@ function PlayerPicker({
       <h3>{side}</h3>
 
       <label>
-        {side}: search WRs
+        {side}: 
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Type at least 2 letters"
+          placeholder="Search Players"
           disabled={disabled}
         />
       </label>
@@ -185,8 +185,7 @@ export default function TradeEvaluation() {
       <h2>Trade Evaluation</h2>
 
       <p>
-        Select WRs on each side. Values use actual regular-season
-        averages, including rushing and passing production.
+        Select players on each side. Values use actual regular-season averages.
       </p>
 
       <form onSubmit={evaluate}>
@@ -336,13 +335,13 @@ export default function TradeEvaluation() {
       )}
 
       <p className="muted">
-        Scoring: 0.1/receiving or rushing yard;
-        6/receiving or rushing TD; 0.04/passing yard;
-        4/passing TD; −2/interception or fumble lost;
-        2/two-point conversion; selected PPR per catch.
-        Season totals ÷ recorded games.
-        No projections or automatic trade suggestions.
-        Multi-player totals do not account for starting lineup
+        Scoring: <br /> 0.1/receiving or rushing yard;
+        <br /> 6/receiving or rushing TD; 0.04/passing yard;
+        <br /> 4/passing TD; -2/interception or fumble lost;
+        <br /> 2/two-point conversion; selected PPR per catch.
+        <br /> Season totals ÷ recorded games.
+        <br /> No projections or automatic trade suggestions.
+        <br /> Multi-player totals do not account for starting lineup
         limits, injuries, or positional needs.
       </p>
     </section>
