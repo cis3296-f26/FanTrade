@@ -3,6 +3,7 @@
   flex-direction: column;
   min-height: 100svh;
   font-family: 'Inter', system-ui, sans-serif;
+  background: linear-gradient(135deg, #369C6E 0%, #3D9F97 100%);
 }
 
 /* ── Shared layout ── */
@@ -16,7 +17,6 @@
 /* ── Hero ── */
 .home-hero {
   position: relative;
-  background: linear-gradient(135deg, #369C6E 0%, #3D9F97 100%);
   min-height: 520px;
   display: flex;
   flex-direction: column;

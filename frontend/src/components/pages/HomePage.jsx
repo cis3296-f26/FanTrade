@@ -25,6 +25,7 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
+      <Navbar />
       {/* ── Hero ── */}
       <section className="home-hero">
         <div className="home-hero-field" aria-hidden="true">
@@ -35,7 +36,6 @@ export default function HomePage() {
             </div>
           ))}
         </div>
-        <Navbar />
         <div className="home-hero-body">
           <div className="home-hero-top">
             <div className="home-hero-lockup">
