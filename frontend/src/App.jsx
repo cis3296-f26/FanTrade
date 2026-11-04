@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LeagueSearch from "./components/LeagueSearch";
 import HomePage from "./components/HomePage";
 import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
 import TradeEvaluation from "./components/TradeEvaluation";
 import "./Search.css";
 
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />
       </Routes>
+      <Footer />
     </BrowserRouter>
   );
 }

@@ -189,17 +189,6 @@
   color: rgba(245, 247, 250, 0.7);
 }
 
-/* ── Footer ── */
-.home-footer {
-  background: #031919;
-  border-top: 1px solid rgba(245, 247, 250, 0.07);
-  padding: 20px 48px;
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 13px;
-  color: rgba(245, 247, 250, 0.35);
-  text-align: center;
-}
-
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .home-hero-body {
@@ -241,9 +230,5 @@
     padding-right: 24px;
     padding-top: 48px;
     padding-bottom: 48px;
-  }
-
-  .home-footer {
-    padding: 16px 24px;
   }
 }

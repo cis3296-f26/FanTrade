@@ -3,8 +3,6 @@ import Navbar from "./Navbar";
 import helmet from "../assets/helmet.png";
 import "./HomePage.css";
 
-const YEAR = 2026;
-
 const FEATURES = [
   {
     title: "roster explorer",
@@ -75,10 +73,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Footer ── */}
-      <footer className="home-footer">
-        <span>fantrade. &copy; {YEAR}</span>
-      </footer>
     </div>
   );
 }
