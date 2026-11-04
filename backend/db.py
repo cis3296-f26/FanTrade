@@ -10,13 +10,17 @@ load_dotenv()
 
 async def get_db():
     """Establish an async connection to Turso (SQLite in the cloud)."""
-    url = os.getenv("TURSO_DATABASE_URL")
-    auth_token = os.getenv("TURSO_AUTH_TOKEN")
+    url = (os.getenv("TURSO_DATABASE_URL") or "").strip().strip('"').strip("'")
+    auth_token = (os.getenv("TURSO_AUTH_TOKEN") or "").strip().strip('"').strip("'")
 
     if not url or not auth_token:
         raise ValueError(
             "Missing TURSO_DATABASE_URL or TURSO_AUTH_TOKEN environment variables."
         )
+
+    # Turso Python client requires https:// instead of websocket libsql://
+    if url.startswith("libsql://"):
+        url = "https://" + url[len("libsql://"):]
 
     return libsql_client.create_client(url=url, auth_token=auth_token)
 

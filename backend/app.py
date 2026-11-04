@@ -1,9 +1,14 @@
 import os
 import re
 from datetime import timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 from flask import Flask, Blueprint, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
+
 from sleeper_connection import (
     _load_players,
     get_user_leagues,
@@ -271,7 +276,7 @@ async def register():
 
             result = await client.execute(
                 "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-                [username, generate_password_hash(password)],
+                [username, generate_password_hash(password, method="pbkdf2:sha256")],
             )
             session.clear()
             session["user_id"] = result.last_insert_rowid
