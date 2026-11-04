@@ -1,0 +1,72 @@
+.about-page {
+  min-height: 100vh;
+  background: #031919;
+  color: #F5F7FA;
+}
+
+.about-main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 64px 48px 96px;
+}
+
+.about-title {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 400;
+  color: #F5F7FA;
+  margin: 0 0 48px;
+}
+
+.about-section {
+  margin-bottom: 40px;
+}
+
+.about-section h2 {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(245, 247, 250, 0.45);
+  margin: 0 0 12px;
+}
+
+.about-lead {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 18px;
+  line-height: 1.7;
+  color: rgba(245, 247, 250, 0.85);
+  margin: 0;
+}
+
+.about-section p {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.8;
+  color: rgba(245, 247, 250, 0.65);
+  margin: 0;
+}
+
+.about-section code {
+  font-size: 13px;
+  background: rgba(245, 247, 250, 0.08);
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: rgba(245, 247, 250, 0.75);
+}
+
+.about-steps {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 2;
+  color: rgba(245, 247, 250, 0.65);
+  margin: 0;
+  padding-left: 20px;
+}
+
+@media (max-width: 600px) {
+  .about-main {
+    padding: 48px 24px 72px;
+  }
+}
