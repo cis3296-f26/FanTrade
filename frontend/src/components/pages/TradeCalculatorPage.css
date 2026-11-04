@@ -8,10 +8,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: calc(100vh - 90px);
-  padding: 48px 24px;
-  text-align: center;
+  padding: 40px 24px 60px;
 }
 
 .trade-calc-badge {
