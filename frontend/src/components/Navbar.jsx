@@ -110,18 +110,18 @@ export default function Navbar() {
                   ? "Create account"
                   : "Sign in"}
             </button>
-            <button
-              type="button"
-              className="account-mode-button"
-              onClick={() => {
-                setMode((current) => (current === "register" ? "login" : "register"));
-                setError("");
-              }}
+              <button
+                type="button"
+                className="account-mode-button"
+                onClick={() => {
+                  setMode((current) => (current === "register" ? "login" : "register"));
+                  setError("");
+                }}
             >
-              {mode === "register"
-                ? "Already have an account? Sign in"
-                : "New here? Create an account"}
-            </button>
+            {mode === "register"
+         ? "Already have an account? Sign in"
+           : "New here? Create an account"}
+              </button>
           </form>
         )}
 
