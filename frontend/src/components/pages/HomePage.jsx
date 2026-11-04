@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import Navbar from "../layout/Navbar";
 import helmet from "../../assets/helmet.png";
+import useScrollReveal from "../../hooks/useScrollReveal";
 import "./HomePage.css";
 
 const FEATURES = [
@@ -20,6 +21,7 @@ const FEATURES = [
 
 export default function HomePage() {
   const navigate = useNavigate();
+  useScrollReveal();
 
   return (
     <div className="home-page">
@@ -54,11 +56,15 @@ export default function HomePage() {
       </section>
 
       {/* ── Features ── */}
-      <section className="home-features">
+      <section className="home-features reveal">
         <div className="home-section-inner">
           <div className="home-features-grid">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="home-feature-card">
+            {FEATURES.map((f, i) => (
+              <div
+                key={f.title}
+                className="home-feature-card"
+                style={{ transitionDelay: `${i * 0.1}s` }}
+              >
                 <h3 className="home-feature-title">{f.title}</h3>
                 <p className="home-feature-body">{f.body}</p>
               </div>
@@ -68,7 +74,7 @@ export default function HomePage() {
       </section>
 
       {/* ── About ── */}
-      <section className="home-about">
+      <section className="home-about reveal">
         <div className="home-section-inner home-about-inner">
           <div className="home-about-label">about the project</div>
           <p className="home-about-body">
@@ -80,7 +86,6 @@ export default function HomePage() {
           </p>
         </div>
       </section>
-
     </div>
   );
 }
