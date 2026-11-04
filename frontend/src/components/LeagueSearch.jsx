@@ -1,18 +1,70 @@
 import { useState } from "react";
 import { fetchJson } from "../lib/api";
+import { useAuth } from "../lib/AuthContext";
 import RosterSearch from "./RosterSearch";
 import "./LeagueSearch.css";
 
 export default function LeagueSearch() {
-  // Keep the input, returned data, and request status separate.
+  const { user, savedLeagues, loading: authLoading, updateSavedLeague } = useAuth();
+
   const [username, setUsername] = useState("");
   const [profile, setProfile] = useState(null);
   const [leagueId, setLeagueId] = useState("");
+  const [savedLeagueId, setSavedLeagueId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [savedLeagueError, setSavedLeagueError] = useState("");
+
+  const selectedLeague = profile?.leagues.find(
+    (league) => league.league_id === leagueId
+  );
+  const selectedLeagueIsSaved = savedLeagues.some(
+    (league) => league.league_id === leagueId && league.platform === "sleeper"
+  );
+  const activeLeagueId = leagueId || savedLeagueId;
+
+  async function handleSaveLeague() {
+    if (!selectedLeague || !user || saving) {
+      return;
+    }
+
+    setSaving(true);
+    setSavedLeagueError("");
+    try {
+      await updateSavedLeague("POST", {
+        league_id: selectedLeague.league_id,
+        league_name: selectedLeague.name,
+        platform: "sleeper",
+      });
+    } catch (requestError) {
+      setSavedLeagueError(requestError.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRemoveSavedLeague() {
+    if (!savedLeagueId || saving) {
+      return;
+    }
+
+    setSaving(true);
+    setSavedLeagueError("");
+    try {
+      await updateSavedLeague("DELETE", {
+        league_id: savedLeagueId,
+        platform: "sleeper",
+      });
+      setSavedLeagueId("");
+    } catch (requestError) {
+      setSavedLeagueError(requestError.message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleSubmit(event) {
-    // Handle the form here instead of letting the browser reload the page.
     event.preventDefault();
 
     const cleanUsername = username.trim();
@@ -21,19 +73,17 @@ export default function LeagueSearch() {
       return;
     }
 
-    // A new lookup clears the previous user's leagues and selected roster.
     setLoading(true);
     setError("");
     setProfile(null);
     setLeagueId("");
+    setSavedLeagueId("");
 
     try {
-      // Encode the username so it can safely go into a URL.
       const data = await fetchJson(
         `/api/sleeper?username=${encodeURIComponent(cleanUsername)}`
       );
 
-      // Make sure we received the data shape the dropdown needs.
       if (!Array.isArray(data.leagues)) {
         throw new Error("The server did not return a valid league list.");
       }
@@ -42,7 +92,6 @@ export default function LeagueSearch() {
     } catch (requestError) {
       setError(requestError.message);
     } finally {
-      // Re-enable the form whether the request worked or failed.
       setLoading(false);
     }
   }
@@ -79,7 +128,6 @@ export default function LeagueSearch() {
         </button>
       </form>
 
-      {/* Status and alert roles help screen readers announce updates. */}
       {loading && <p role="status">Loading leagues from Sleeper...</p>}
 
       {error && (
@@ -88,7 +136,6 @@ export default function LeagueSearch() {
         </p>
       )}
 
-      {/* Only show the league selector after a successful lookup. */}
       {profile && (
         <div className="league-selection">
           <p role="status">
@@ -108,7 +155,11 @@ export default function LeagueSearch() {
               <select
                 id="league-select"
                 value={leagueId}
-                onChange={(event) => setLeagueId(event.target.value)}
+                onChange={(event) => {
+                  setLeagueId(event.target.value);
+                  setSavedLeagueId("");
+                  setSavedLeagueError("");
+                }}
               >
                 <option value="">Select a league</option>
 
@@ -124,12 +175,80 @@ export default function LeagueSearch() {
               </select>
             </div>
           )}
+
+          {selectedLeague && user && (
+            <div className="save-league-control">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleSaveLeague}
+                disabled={saving || selectedLeagueIsSaved}
+              >
+                {saving
+                  ? "Saving..."
+                  : selectedLeagueIsSaved
+                    ? "League saved"
+                    : "Save this league"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Changing the key starts a fresh search for the selected league. */}
-      {leagueId && (
-        <RosterSearch key={leagueId} leagueId={leagueId} />
+      {user && (
+        <div className="saved-leagues">
+          <h3>Saved leagues</h3>
+          {authLoading ? (
+            <p role="status">Loading your saved leagues...</p>
+          ) : savedLeagues.length === 0 ? (
+            <p className="muted">
+              You haven&apos;t saved any leagues yet. Find a league above and save it to your account.
+            </p>
+          ) : (
+            <div className="field">
+              <label htmlFor="saved-league-select">Open a saved league</label>
+              <select
+                id="saved-league-select"
+                value={savedLeagueId}
+                onChange={(event) => {
+                  setSavedLeagueId(event.target.value);
+                  setLeagueId("");
+                  setSavedLeagueError("");
+                }}
+              >
+                <option value="">Select a saved league</option>
+                {savedLeagues.map((league) => (
+                  <option
+                    key={`${league.platform}:${league.league_id}`}
+                    value={league.league_id}
+                  >
+                    {league.league_name}
+                  </option>
+                ))}
+              </select>
+              {savedLeagueId && (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={handleRemoveSavedLeague}
+                  disabled={saving}
+                >
+                  {saving ? "Removing..." : "Remove saved league"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {savedLeagueError && (
+        <p className="error-message" role="alert">
+          {savedLeagueError}
+        </p>
+      )}
+
+      {activeLeagueId && (
+        <RosterSearch key={activeLeagueId} leagueId={activeLeagueId} />
       )}
     </section>
   );

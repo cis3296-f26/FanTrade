@@ -4,6 +4,7 @@ import LeagueSearch from "./components/LeagueSearch";
 import HomePage from "./components/HomePage";
 import Navbar from "./components/Navbar";
 import TradeEvaluation from "./components/TradeEvaluation";
+import { AuthProvider } from "./lib/AuthContext";
 import "./Search.css";
 
 function SearchPage() {
@@ -36,11 +37,13 @@ function SearchPage() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/search" element={<SearchPage />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/search" element={<SearchPage />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
