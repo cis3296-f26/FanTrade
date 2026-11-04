@@ -1,0 +1,55 @@
+.search-app .trade-suggestion {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(245, 247, 250, 0.03);
+  overflow-wrap: anywhere;
+}
+
+.search-app .trade-suggestion h3 {
+  margin: 0;
+  color: var(--text-bright);
+}
+
+.search-app .trade-team-card {
+  border: 1px solid rgba(245, 247, 250, 0.15);
+  border-radius: 4px;
+}
+
+.search-app .trade-team-card summary {
+  padding: 16px;
+  font-size: 14px;
+}
+
+.search-app .trade-team-card summary:hover {
+  background: rgba(245, 247, 250, 0.04);
+}
+
+.search-app .trade-selection-hint {
+  font-size: 13px;
+  color: var(--teal);
+}
+
+.search-app .trade-team-options {
+  padding: 0 12px 12px;
+}
+
+.search-app .trade-suggestion select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.search-app .trade-suggestion select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.search-app .trade-suggestion button {
+  width: 100%;
+  padding-inline: 12px;
+  white-space: normal;
+}

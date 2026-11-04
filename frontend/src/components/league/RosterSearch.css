@@ -35,6 +35,38 @@
   gap: 12px;
 }
 
+.search-app .league-content-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+  gap: 24px;
+  align-items: start;
+  margin-top: 24px;
+}
+
+.search-app .league-roster-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.search-app .league-roster-content .search-controls {
+  margin-top: 0;
+}
+
+.search-app .league-roster-content .roster-columns {
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .search-app .league-content-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .search-app .league-content-layout > .trade-suggestion {
+    grid-row: 1;
+  }
+}
+
 @media (max-width: 600px) {
   .search-app .search-controls {
     flex-direction: column;

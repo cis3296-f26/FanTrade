@@ -1,0 +1,146 @@
+.navbar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 48px;
+  z-index: 10;
+  background: transparent;
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.navbar-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(245, 247, 250, 0.5);
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.navbar-link:hover {
+  color: rgba(245, 247, 250, 0.9);
+  background: rgba(245, 247, 250, 0.06);
+}
+
+.navbar-link--active {
+  color: #F5F7FA;
+  background: rgba(245, 247, 250, 0.08);
+}
+
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 18px;
+  font-weight: 400;
+  color: #F5F7FA;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  opacity: 0.9;
+  transition: opacity 0.15s ease;
+}
+
+.navbar-logo:hover {
+  opacity: 1;
+}
+
+.navbar-helmet {
+  height: 28px;
+  width: auto;
+}
+
+/* ── Hamburger button (hidden on desktop) ── */
+.navbar-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  z-index: 11;
+}
+
+.navbar-hamburger-icon,
+.navbar-hamburger-icon::before,
+.navbar-hamburger-icon::after {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: rgba(245, 247, 250, 0.8);
+  border-radius: 2px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.navbar-hamburger-icon {
+  position: relative;
+}
+
+.navbar-hamburger-icon::before,
+.navbar-hamburger-icon::after {
+  content: '';
+  position: absolute;
+  left: 0;
+}
+
+.navbar-hamburger-icon::before { top: -7px; }
+.navbar-hamburger-icon::after  { top:  7px; }
+
+/* Animate to X when open */
+.navbar-hamburger-icon--open {
+  background: transparent;
+}
+.navbar-hamburger-icon--open::before {
+  transform: translateY(7px) rotate(45deg);
+}
+.navbar-hamburger-icon--open::after {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+@media (max-width: 600px) {
+  .navbar {
+    flex-wrap: wrap;
+    padding: 20px 24px;
+  }
+
+  .navbar-helmet {
+    height: 24px;
+  }
+
+  .navbar-hamburger {
+    display: block;
+  }
+
+  .navbar-links {
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    padding: 8px 0 4px;
+    gap: 2px;
+  }
+
+  .navbar-links--open {
+    display: flex;
+  }
+
+  .navbar-link {
+    font-size: 15px;
+    padding: 12px 8px;
+    text-align: left;
+    border-radius: 6px;
+  }
+}
