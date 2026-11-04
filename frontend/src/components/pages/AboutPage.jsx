@@ -1,4 +1,3 @@
-import Navbar from "../layout/Navbar";
 import useScrollReveal from "../../hooks/useScrollReveal";
 import "./AboutPage.css";
 
@@ -15,7 +14,6 @@ export default function AboutPage() {
 
   return (
     <div className="about-page">
-      <Navbar />
       <main className="about-main">
         <h1 className="about-title reveal">About FanTrade</h1>
 

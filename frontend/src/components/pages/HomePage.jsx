@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router-dom";
-import Navbar from "../layout/Navbar";
 import helmet from "../../assets/helmet.png";
 import useScrollReveal from "../../hooks/useScrollReveal";
 import "./HomePage.css";
@@ -25,7 +24,6 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
-      <Navbar />
       {/* ── Hero ── */}
       <section className="home-hero">
         <div className="home-hero-field" aria-hidden="true">
