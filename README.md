@@ -69,8 +69,8 @@ The dependency file includes Flask, requests, nfl_data_py, and pandas.
 
 ```text
 TURSO_DATABASE_URL="https://fantrade-db-vercel-icfg-0dusux2mhtocgmhzcsmwalwk.aws-us-east-1.turso.io"
-TURSO_AUTH_TOKEN="eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3OTI2OTQ3MzAsImlkIjoiMDFhMTY0ZWUtYmUwMS03NWU5LTlmZGEtMTM0ZDZiODQ5NjA4Iiwia2lkIjoia0RKZlAxdHFlVVFMMnhiNWVNVXpSY1dSYWFjZ0x2NFhrMVdpczZxQmxQayIsInJpZCI6IjE4ODc1NjE3LWQxYmItNDgyOC1hZTk4LTk4MGY1OThhNWE5YiJ9.lmcmLb3mKrNRjf3ModhR0dFS817jxLjbmLpv1F1UJ2CYjzO8J10qYapp_oXyhuBTUege18WLchU094gfqBUMDw"
-FLASK_SECRET_KEY=07916c3c7559da922d09a3767c577241af999e9f6ce5d86f3475191f593b22a6
+TURSO_AUTH_TOKEN=""
+FLASK_SECRET_KEY=
 SESSION_COOKIE_SECURE=false
 ```
 
