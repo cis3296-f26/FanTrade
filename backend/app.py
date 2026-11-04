@@ -1,9 +1,13 @@
 import os
 import re
 from datetime import timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from flask import Flask, Blueprint, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
+
 from sleeper_connection import (
     get_user_leagues,
     get_current_nfl_state,
