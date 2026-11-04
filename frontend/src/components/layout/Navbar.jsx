@@ -4,9 +4,10 @@ import helmet from "../../assets/helmet.png";
 import "./Navbar.css";
 
 const NAV_LINKS = [
+  { label: "Home", path: "/" },
+  { label: "About", path: "/about" },
   { label: "League View", path: "/search" },
   { label: "Trade Calculator", path: "/trade" },
-  { label: "About", path: "/about" },
 ];
 
 export default function Navbar() {
