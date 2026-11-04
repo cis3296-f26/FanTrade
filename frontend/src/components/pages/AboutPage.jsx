@@ -2,6 +2,14 @@ import Navbar from "../layout/Navbar";
 import useScrollReveal from "../../hooks/useScrollReveal";
 import "./AboutPage.css";
 
+const TEAM = [
+  { name: "Adyan Chowdhury",  github: "adyan1025" },
+  { name: "Gavin Montross",   github: "GavinMontross" },
+  { name: "Luke Edmundson",   github: "ledmundson76" },
+  { name: "Chris Verna",      github: "chrisverna" },
+  { name: "Alexander Miller", github: "MillerAlexander" },
+];
+
 export default function AboutPage() {
   useScrollReveal();
 
@@ -10,6 +18,33 @@ export default function AboutPage() {
       <Navbar />
       <main className="about-main">
         <h1 className="about-title reveal">About FanTrade</h1>
+
+        <section className="about-section reveal">
+          <h2>Built by</h2>
+          <p className="about-team-intro">
+            FanTrade was created by a team of five developers as a fantasy
+            football trade analysis tool.
+          </p>
+          <div className="about-team-grid">
+            {TEAM.map(({ name, github }) => (
+              <a
+                key={github}
+                className="about-team-card"
+                href={`https://github.com/${github}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <img
+                  className="about-team-avatar"
+                  src={`https://github.com/${github}.png?size=80`}
+                  alt={name}
+                />
+                <span className="about-team-name">{name}</span>
+                <span className="about-team-handle">@{github}</span>
+              </a>
+            ))}
+          </div>
+        </section>
 
         <section className="about-section reveal">
           <p className="about-lead">
