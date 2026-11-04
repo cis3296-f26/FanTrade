@@ -56,13 +56,13 @@ export default function HomePage() {
       </section>
 
       {/* ── Features ── */}
-      <section className="home-features reveal">
+      <section className="home-features">
         <div className="home-section-inner">
           <div className="home-features-grid">
             {FEATURES.map((f, i) => (
               <div
                 key={f.title}
-                className="home-feature-card"
+                className="home-feature-card reveal"
                 style={{ transitionDelay: `${i * 0.1}s` }}
               >
                 <h3 className="home-feature-title">{f.title}</h3>
@@ -74,10 +74,10 @@ export default function HomePage() {
       </section>
 
       {/* ── About ── */}
-      <section className="home-about reveal">
+      <section className="home-about">
         <div className="home-section-inner home-about-inner">
-          <div className="home-about-label">about the project</div>
-          <p className="home-about-body">
+          <div className="home-about-label reveal">about the project</div>
+          <p className="home-about-body reveal">
             fantrade brings together Sleeper league data and NFL
             play-by-play statistics to support trade analysis. Look up
             any Sleeper username to browse their leagues, explore every
