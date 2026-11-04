@@ -1,4 +1,5 @@
 # Virtual environments
+node_modules/
 .venv/
 .venv311/
 venv/
@@ -21,6 +22,7 @@ Thumbs.db
 # Database files
 *.db
 *.sqlite
+*.sqlite3
 
 # NFL data cache
 .nfl_data_py/

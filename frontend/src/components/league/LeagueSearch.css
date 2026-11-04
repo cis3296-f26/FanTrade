@@ -9,6 +9,24 @@
   margin-top: 28px;
 }
 
+.search-app .save-league-control {
+  margin-top: 14px;
+}
+
+.search-app .saved-leagues {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.search-app .saved-leagues h3 {
+  margin: 0 0 14px;
+}
+
+.search-app .saved-leagues .field {
+  align-items: flex-start;
+}
+
 #league-search-heading {
   font-family: 'Times New Roman', Times, serif;
   font-size: clamp(2rem, 5vw, 3rem);

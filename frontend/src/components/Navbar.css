@@ -1,0 +1,122 @@
+.navbar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 48px;
+  z-index: 10;
+  background: transparent;
+}
+
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 18px;
+  font-weight: 400;
+  color: #F5F7FA;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  opacity: 0.9;
+  transition: opacity 0.15s ease;
+}
+
+.navbar-logo:hover {
+  opacity: 1;
+}
+
+.navbar-helmet {
+  height: 28px;
+  width: auto;
+}
+
+.navbar-account {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #F5F7FA;
+  font-size: 14px;
+}
+
+.navbar-account-button,
+.account-panel button[type="submit"] {
+  border: 1px solid rgba(245, 247, 250, 0.45);
+  border-radius: 6px;
+  padding: 9px 14px;
+  color: #F5F7FA;
+  background: rgba(15, 23, 42, 0.68);
+  cursor: pointer;
+}
+
+.navbar-account-button:hover,
+.account-panel button[type="submit"]:hover {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.account-panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 10px;
+  width: min(300px, calc(100vw - 48px));
+  padding: 20px;
+  border: 1px solid rgba(245, 247, 250, 0.2);
+  border-radius: 10px;
+  color: #F5F7FA;
+  background: #101827;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.account-panel h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.account-panel input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px;
+}
+
+.account-mode-button {
+  border: 0;
+  padding: 4px 0;
+  color: #d3dded;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-error {
+  margin: 0;
+  color: #ffb4b4;
+  font-size: 13px;
+}
+
+.navbar-error {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 48px));
+  text-align: right;
+}
+
+@media (max-width: 600px) {
+  .navbar {
+    padding: 20px 24px;
+  }
+
+  .navbar-helmet {
+    height: 24px;
+  }
+
+  .navbar-username {
+    display: none;
+  }
+}
