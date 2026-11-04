@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchJson } from "../../lib/api";
 import TeamRoster from "./TeamRoster";
+import TradeSuggestion from "./TradeSuggestion";
 import "./RosterSearch.css";
 
 // Use the same cleanup for both the query and the values being searched.
@@ -59,22 +60,32 @@ export default function RosterSearch({ leagueId }) {
   }, [leagueId, attempt]);
 
   if (loading) {
-    return <p role="status">Loading teams and player names...</p>;
+    return (
+      <div className="roster-search league-content-layout">
+        <p role="status">Loading teams and player names...</p>
+        {/* Show the panel right away, with its controls disabled until teams load. */}
+        <TradeSuggestion loading />
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="request-error">
-        <p className="error-message" role="alert">
-          {error}
-        </p>
+      <div className="roster-search league-content-layout">
+        <div className="request-error">
+          <p className="error-message" role="alert">
+            {error}
+          </p>
 
-        <button
-          type="button"
-          onClick={() => setAttempt((current) => current + 1)}
-        >
-          Try again
-        </button>
+          <button
+            type="button"
+            onClick={() => setAttempt((current) => current + 1)}
+          >
+            Try again
+          </button>
+        </div>
+        {/* Keep the panel visible and explain that the league needs to be loaded again. */}
+        <TradeSuggestion unavailable />
       </div>
     );
   }
@@ -111,68 +122,75 @@ export default function RosterSearch({ leagueId }) {
         or player name.
       </p>
 
-      <div className="search-controls">
-        <div className="field">
-          <label htmlFor="roster-query">Search teams and rosters</label>
+      {/* Keep the league heading above both columns: rosters on the left, trades on the right. */}
+      <div className="league-content-layout">
+        <div className="league-roster-content">
+          <div className="search-controls">
+            <div className="field">
+              <label htmlFor="roster-query">Search teams and rosters</label>
 
-          <input
-            id="roster-query"
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Team, owner, or player name"
-            aria-describedby="search-help"
-          />
-        </div>
-
-        <button
-          type="button"
-          className="secondary-button"
-          disabled={!query}
-          onClick={() => setQuery("")}
-        >
-          Clear
-        </button>
-      </div>
-
-      <p id="search-help" className="muted">
-        Searching a player shows the fantasy team that owns them.
-        Open a team to view its full roster.
-      </p>
-
-      <p role="status" aria-live="polite">
-        Showing {matchingTeams.length} of {league.rosters.length} teams
-      </p>
-
-      {/* An empty league and an unsuccessful search are different cases. */}
-      {league.rosters.length === 0 ? (
-        <p className="empty-message">
-          This league has no rosters yet.
-        </p>
-      ) : matchingTeams.length === 0 ? (
-        <p className="empty-message">
-          No teams match “{query.trim()}”. Try another name or clear the search.
-        </p>
-      ) : (
-        <div className="team-list">
-          {matchingTeams.map((team) => {
-            // Pass matching players along so the result can explain its match.
-            const matchingPlayers = searchText
-              ? (team.players ?? []).filter((player) =>
-                  normalize(player.name).includes(searchText)
-                )
-              : [];
-
-            return (
-              <TeamRoster
-                key={team.roster_id}
-                team={team}
-                matchingPlayers={matchingPlayers}
+              <input
+                id="roster-query"
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Team, owner, or player name"
+                aria-describedby="search-help"
               />
-            );
-          })}
+            </div>
+
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={!query}
+              onClick={() => setQuery("")}
+            >
+              Clear
+            </button>
+          </div>
+
+          <p id="search-help" className="muted">
+            Searching a player shows the fantasy team that owns them.
+            Open a team to view its full roster.
+          </p>
+
+          <p role="status" aria-live="polite">
+            Showing {matchingTeams.length} of {league.rosters.length} teams
+          </p>
+
+          {/* An empty league and an unsuccessful search are different cases. */}
+          {league.rosters.length === 0 ? (
+            <p className="empty-message">
+              This league has no rosters yet.
+            </p>
+          ) : matchingTeams.length === 0 ? (
+            <p className="empty-message">
+              No teams match "{query.trim()}". Try another name or clear the search.
+            </p>
+          ) : (
+            <div className="team-list">
+              {matchingTeams.map((team) => {
+                // Pass matching players along so the result can explain its match.
+                const matchingPlayers = searchText
+                  ? (team.players ?? []).filter((player) =>
+                      normalize(player.name).includes(searchText)
+                    )
+                  : [];
+
+                return (
+                  <TeamRoster
+                    key={team.roster_id}
+                    team={team}
+                    matchingPlayers={matchingPlayers}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+        {/* Use all league teams here so roster search doesn't change the dropdown options. */}
+        <TradeSuggestion teams={league.rosters} />
+      </div>
     </section>
   );
 }
