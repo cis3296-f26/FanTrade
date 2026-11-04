@@ -7,6 +7,7 @@ function PlayerPicker({
   label,
   selected,
   excluded,
+  popularPlayers,
   onAdd,
   onRemove,
   disabled,
@@ -80,6 +81,34 @@ function PlayerPicker({
         />
       </div>
 
+      {/* Quick-add popular trade targets */}
+      {popularPlayers && popularPlayers.length > 0 && query.trim().length < 2 && (
+        <div className="trade-quick-section">
+          <span className="quick-label">Top Targets:</span>
+          <div className="quick-chip-list">
+            {popularPlayers.slice(0, 6).map((player) => {
+              const isExcluded = excluded.includes(player.player_id);
+              return (
+                <button
+                  key={player.player_id}
+                  type="button"
+                  className="btn-quick-chip"
+                  disabled={disabled || isExcluded || selected.length >= 10}
+                  onClick={() => onAdd(player)}
+                  title={isExcluded ? "Already in trade" : `Add ${player.name}`}
+                >
+                  <span className="chip-name">{player.name}</span>
+                  <span className="chip-pos">{player.position}</span>
+                  {player.value > 0 && (
+                    <span className="chip-val">{player.value.toLocaleString()}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {loading && <p className="muted" role="status">Searching players…</p>}
       {error && <p className="error-message" role="alert">{error}</p>}
 
@@ -99,18 +128,25 @@ function PlayerPicker({
                 </div>
               </div>
 
-              <button
-                type="button"
-                className="btn-action-small"
-                disabled={disabled || selected.length >= 10}
-                onClick={() => {
-                  onAdd(player);
-                  setQuery("");
-                  setMatches([]);
-                }}
-              >
-                + Add
-              </button>
+              <div className="player-right-group">
+                {player.value > 0 && (
+                  <span className="player-val-pill">
+                    {player.value.toLocaleString()} pts
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="btn-action-small"
+                  disabled={disabled || selected.length >= 10}
+                  onClick={() => {
+                    onAdd(player);
+                    setQuery("");
+                    setMatches([]);
+                  }}
+                >
+                  + Add
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -131,15 +167,22 @@ function PlayerPicker({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  className="btn-remove-small"
-                  disabled={disabled}
-                  onClick={() => onRemove(player.player_id)}
-                  title={`Remove ${player.name}`}
-                >
-                  ✕
-                </button>
+                <div className="player-right-group">
+                  {player.value > 0 && (
+                    <span className="player-val-pill">
+                      {player.value.toLocaleString()} pts
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-remove-small"
+                    disabled={disabled}
+                    onClick={() => onRemove(player.player_id)}
+                    title={`Remove ${player.name}`}
+                  >
+                    ✕
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -154,6 +197,9 @@ export default function TradeEvaluation() {
 
   // Mode: "fancalc" (standard consensus) or "experimental" (Luke's nflverse model)
   const [calcMode, setCalcMode] = useState("fancalc");
+
+  // Popular players quick options
+  const [popularPlayers, setPopularPlayers] = useState([]);
 
   // FanCalc Settings
   const [isDynasty, setIsDynasty] = useState(false);
@@ -174,6 +220,17 @@ export default function TradeEvaluation() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Load top popular players on mount
+  useEffect(() => {
+    fetchJson("/api/trade-evaluation/players?popular=true")
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setPopularPlayers(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const clearResult = () => {
     setResult(null);
@@ -382,6 +439,7 @@ export default function TradeEvaluation() {
             label="I Give"
             selected={give}
             excluded={excluded}
+            popularPlayers={popularPlayers}
             disabled={loading}
             onAdd={(player) => {
               setGive((prev) => [...prev, player]);
@@ -398,6 +456,7 @@ export default function TradeEvaluation() {
             label="I Receive"
             selected={receive}
             excluded={excluded}
+            popularPlayers={popularPlayers}
             disabled={loading}
             onAdd={(player) => {
               setReceive((prev) => [...prev, player]);

@@ -117,9 +117,7 @@ def pbp_demo():
 @api.route("/trade-evaluation/players")
 def trade_players():
     query = request.args.get("q", "").strip().lower()
-
-    if len(query) < 2:
-        return jsonify([])
+    popular = request.args.get("popular") in ("true", "1")
 
     players = _load_players()
 
@@ -130,15 +128,31 @@ def trade_players():
 
     # Fast cached lookup for FanCalc trade values to prioritize fantasy-relevant stars
     fc_values = {}
+    fc_top_list = []
     try:
         from fancalc_connection import fetch_fancalc_values
         fc_data = fetch_fancalc_values()
         for item in fc_data:
-            sid = (item.get("player") or {}).get("sleeperId")
-            if sid:
-                fc_values[str(sid)] = int(item.get("value", 0))
+            p = item.get("player") or {}
+            sid = p.get("sleeperId")
+            val = int(item.get("value", 0))
+            if sid and val > 0:
+                fc_values[str(sid)] = val
+                fc_top_list.append({
+                    "player_id": str(sid),
+                    "name": p.get("name"),
+                    "team": p.get("maybeTeam") or "FA",
+                    "position": p.get("position") or "FLEX",
+                    "value": val,
+                })
     except Exception:
         fc_values = {}
+
+    if popular or (not query and "popular" in request.args):
+        return jsonify(fc_top_list[:12])
+
+    if len(query) < 2:
+        return jsonify([])
 
     ranked_matches = []
     for pid, player in players.items():
@@ -185,6 +199,7 @@ def trade_players():
             "name": name,
             "team": player.get("team") or "FA",
             "position": player.get("position") or "N/A",
+            "value": val,
         }))
 
     ranked_matches.sort(key=lambda item: item[0], reverse=True)

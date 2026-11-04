@@ -249,6 +249,84 @@
   color: rgba(245, 247, 250, 0.5);
 }
 
+.player-right-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.player-val-pill {
+  font-size: 12px;
+  font-weight: 600;
+  color: #369C6E;
+  background: rgba(54, 156, 110, 0.12);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+/* ── Quick Target Chips ── */
+.trade-quick-section {
+  margin: 10px 0 14px;
+}
+
+.quick-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(245, 247, 250, 0.45);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.quick-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.btn-quick-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 12px;
+  background: rgba(245, 247, 250, 0.05);
+  border: 1px solid rgba(245, 247, 250, 0.12);
+  color: rgba(245, 247, 250, 0.85);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-quick-chip:hover:not(:disabled) {
+  border-color: #369C6E;
+  background: rgba(54, 156, 110, 0.12);
+  color: #F5F7FA;
+  transform: translateY(-1px);
+}
+
+.btn-quick-chip:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.chip-name {
+  font-weight: 500;
+}
+
+.chip-pos {
+  color: #369C6E;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.chip-val {
+  color: rgba(245, 247, 250, 0.45);
+  font-size: 11px;
+}
+
 /* ── Buttons ── */
 .btn-action-small {
   padding: 6px 14px;
