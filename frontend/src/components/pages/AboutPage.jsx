@@ -1,4 +1,4 @@
-import Navbar from "./Navbar";
+import Navbar from "../layout/Navbar";
 import "./AboutPage.css";
 
 export default function AboutPage() {

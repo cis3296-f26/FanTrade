@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { fetchJson } from "../lib/api";
+import { fetchJson } from "../../lib/api";
 import RosterSearch from "./RosterSearch";
+
 import "./LeagueSearch.css";
 
 export default function LeagueSearch() {

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import Navbar from "./Navbar";
-import helmet from "../assets/helmet.png";
+import Navbar from "../layout/Navbar";
+import helmet from "../../assets/helmet.png";
 import "./HomePage.css";
 
 const FEATURES = [

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchJson } from "../lib/api";
+import { fetchJson } from "../../lib/api";
 import TeamRoster from "./TeamRoster";
 import "./RosterSearch.css";
 

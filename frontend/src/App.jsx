@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import HomePage from "./components/HomePage";
-import AboutPage from "./components/AboutPage";
-import TradeCalculatorPage from "./components/TradeCalculatorPage";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
-import LeagueSearch from "./components/LeagueSearch";
-import TradeEvaluation from "./components/TradeEvaluation";
-import "./Search.css";
+import HomePage from "./components/pages/HomePage";
+import AboutPage from "./components/pages/AboutPage";
+import TradeCalculatorPage from "./components/pages/TradeCalculatorPage";
+import Navbar from "./components/layout/Navbar";
+import Footer from "./components/layout/Footer";
+import LeagueSearch from "./components/league/LeagueSearch";
+import TradeEvaluation from "./components/league/TradeEvaluation";
+import "./components/pages/LeaguePage.css";
 
 function LeaguePage() {
   const [showTradeEvaluation, setShowTradeEvaluation] = useState(false);

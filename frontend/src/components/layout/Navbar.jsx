@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import helmet from "../assets/helmet.png";
+import helmet from "../../assets/helmet.png";
 import "./Navbar.css";
 
 const NAV_LINKS = [

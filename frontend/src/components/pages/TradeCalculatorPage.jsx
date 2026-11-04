@@ -1,4 +1,4 @@
-import Navbar from "./Navbar";
+import Navbar from "../layout/Navbar";
 import "./TradeCalculatorPage.css";
 
 export default function TradeCalculatorPage() {
