@@ -1,9 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import Navbar from "./Navbar";
-import helmet from "../assets/helmet.png";
+import Navbar from "../layout/Navbar";
+import helmet from "../../assets/helmet.png";
+import useScrollReveal from "../../hooks/useScrollReveal";
 import "./HomePage.css";
-
-const YEAR = 2026;
 
 const FEATURES = [
   {
@@ -22,12 +21,21 @@ const FEATURES = [
 
 export default function HomePage() {
   const navigate = useNavigate();
+  useScrollReveal();
 
   return (
     <div className="home-page">
+      <Navbar />
       {/* ── Hero ── */}
       <section className="home-hero">
-        <Navbar />
+        <div className="home-hero-field" aria-hidden="true">
+          {[10, 20, 30, 40, 50, 40, 30, 20, 10].map((yard, i) => (
+            <div key={i} className="home-hero-yardline">
+              <span className="home-hero-yard-number">{yard}</span>
+              <span className="home-hero-yard-number">{yard}</span>
+            </div>
+          ))}
+        </div>
         <div className="home-hero-body">
           <div className="home-hero-top">
             <div className="home-hero-lockup">
@@ -51,8 +59,12 @@ export default function HomePage() {
       <section className="home-features">
         <div className="home-section-inner">
           <div className="home-features-grid">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="home-feature-card">
+            {FEATURES.map((f, i) => (
+              <div
+                key={f.title}
+                className="home-feature-card reveal"
+                style={{ transitionDelay: `${i * 0.1}s` }}
+              >
                 <h3 className="home-feature-title">{f.title}</h3>
                 <p className="home-feature-body">{f.body}</p>
               </div>
@@ -64,9 +76,9 @@ export default function HomePage() {
       {/* ── About ── */}
       <section className="home-about">
         <div className="home-section-inner home-about-inner">
-          <div className="home-about-label">about the project</div>
-          <p className="home-about-body">
-            fan trade. brings together Sleeper league data and NFL
+          <div className="home-about-label reveal">about the project</div>
+          <p className="home-about-body reveal">
+            fantrade brings together Sleeper league data and NFL
             play-by-play statistics to support trade analysis. Look up
             any Sleeper username to browse their leagues, explore every
             roster, and dig into the player-level numbers behind each
@@ -74,11 +86,6 @@ export default function HomePage() {
           </p>
         </div>
       </section>
-
-      {/* ── Footer ── */}
-      <footer className="home-footer">
-        <span>fan trade. &copy; {YEAR}</span>
-      </footer>
     </div>
   );
 }

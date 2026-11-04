@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchJson } from "../lib/api";
+import { fetchJson } from "../../lib/api";
 import TeamRoster from "./TeamRoster";
 import TradeSuggestion from "./TradeSuggestion";
 import "./RosterSearch.css";
@@ -165,7 +165,7 @@ export default function RosterSearch({ leagueId }) {
             </p>
           ) : matchingTeams.length === 0 ? (
             <p className="empty-message">
-              No teams match “{query.trim()}”. Try another name or clear the search.
+              No teams match "{query.trim()}". Try another name or clear the search.
             </p>
           ) : (
             <div className="team-list">
