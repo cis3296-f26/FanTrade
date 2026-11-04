@@ -27,6 +27,13 @@
   align-items: flex-start;
 }
 
+#league-search-heading {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 400;
+  color: #F5F7FA;
+}
+
 @media (max-width: 600px) {
   .search-app .username-form {
     flex-direction: column;

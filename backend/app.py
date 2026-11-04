@@ -10,6 +10,7 @@ from flask import Flask, Blueprint, jsonify, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from sleeper_connection import (
+    _load_players,
     get_user_leagues,
     get_current_nfl_state,
     get_league_rosters,
@@ -113,10 +114,91 @@ def pbp_demo():
     })
 
 
-@api.route("/trade-evaluation")
-def trade_evaluation():
-    return jsonify({"message": "Evaluate trades here"})
+@api.route("/trade-evaluation/players")
+def trade_players():
+    # Identity lookup only: avoids loading projections just to search names.
+    query = request.args.get("q", "").strip().lower()
 
+    if len(query) < 2:
+        return jsonify([])
+
+    players = _load_players()
+
+    if not players:
+        return jsonify({
+            "error": "Player directory is unavailable. Try again."
+        }), 503
+
+    matches = [
+        {
+            "player_id": str(pid),
+            "name": player.get("full_name"),
+            "team": player.get("team") or "FA",
+        }
+        for pid, player in players.items()
+        if player.get("position") in {"QB", "WR", "RB", "TE", "K", "DEF"}
+        and query in (player.get("full_name") or "").lower()
+        ]
+
+    return jsonify(
+        sorted(matches, key=lambda player: player["name"])[:20]
+    )
+
+
+@api.route("/trade-evaluation", methods=["POST"])
+def trade_evaluation():
+    from trade_calculation import calculate_trade, load_season
+    from datetime import datetime
+
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return jsonify({"error": "Send a JSON object."}), 400
+
+    season = data.get("season")
+
+    if (
+        isinstance(season, bool)
+        or not isinstance(season, int)
+        or not 1999 <= season <= datetime.now().year
+    ):
+        return jsonify({
+            "error": "Choose a valid season from 1999 through this year."
+        }), 400
+
+    try:
+        players = _load_players()
+
+        if not players:
+            raise RuntimeError(
+                "Player directory is unavailable. Try again."
+            )
+
+        result = calculate_trade(
+            data,
+            players,
+            load_season(season),
+        )
+
+        return jsonify({
+            **result,
+            "season": season,
+            "ppr": data.get("ppr", 1),
+            "source": "NFLverse regular-season statistics",
+        })
+
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    except Exception:
+        app.logger.exception("Trade data loading failed")
+
+        return jsonify({
+            "error": (
+                "Could not load NFLverse season stats. "
+                "Try again or choose another season."
+            )
+        }), 503
 
 # ------------------------------------------------------------------------------
 # ACCOUNT AND SAVED-LEAGUE ROUTES
