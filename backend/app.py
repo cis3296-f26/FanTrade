@@ -116,7 +116,6 @@ def pbp_demo():
 
 @api.route("/trade-evaluation/players")
 def trade_players():
-    # Identity lookup only: avoids loading projections just to search names.
     query = request.args.get("q", "").strip().lower()
 
     if len(query) < 2:
@@ -129,21 +128,68 @@ def trade_players():
             "error": "Player directory is unavailable. Try again."
         }), 503
 
-    matches = [
-        {
+    # Fast cached lookup for FanCalc trade values to prioritize fantasy-relevant stars
+    fc_values = {}
+    try:
+        from fancalc_connection import fetch_fancalc_values
+        fc_data = fetch_fancalc_values()
+        for item in fc_data:
+            sid = (item.get("player") or {}).get("sleeperId")
+            if sid:
+                fc_values[str(sid)] = int(item.get("value", 0))
+    except Exception:
+        fc_values = {}
+
+    ranked_matches = []
+    for pid, player in players.items():
+        if player.get("position") not in {"QB", "WR", "RB", "TE", "K", "DEF"}:
+            continue
+
+        name = (player.get("full_name") or "").strip()
+        name_lower = name.lower()
+        last_name = (player.get("last_name") or "").strip().lower()
+
+        if query not in name_lower and query not in last_name:
+            continue
+
+        # Score calculation for intuitive relevance
+        score = 0
+        if query == name_lower:
+            score += 100000
+        elif name_lower.startswith(query):
+            score += 50000
+        elif last_name.startswith(query):
+            score += 45000
+        elif any(part.startswith(query) for part in name_lower.split()):
+            score += 40000
+        else:
+            score += 10000
+
+        # Fantasy relevance: FanCalc trade value (Gibbs, Lamb, Allen, Jefferson, etc.)
+        val = fc_values.get(str(pid), 0)
+        score += val * 2
+
+        # Sleeper search rank (lower number = higher rank in fantasy)
+        sr = player.get("search_rank")
+        if sr and sr < 9999:
+            score += max(0, 10000 - sr)
+
+        # Active NFL rostered player bonus
+        if player.get("status") == "Active":
+            score += 3000
+        if player.get("team") and player.get("team") != "FA":
+            score += 2000
+
+        ranked_matches.append((score, {
             "player_id": str(pid),
-            "name": player.get("full_name"),
+            "name": name,
             "team": player.get("team") or "FA",
             "position": player.get("position") or "N/A",
-        }
-        for pid, player in players.items()
-        if player.get("position") in {"QB", "WR", "RB", "TE", "K", "DEF"}
-        and query in (player.get("full_name") or "").lower()
-    ]
+        }))
 
-    return jsonify(
-        sorted(matches, key=lambda player: player["name"])[:20]
-    )
+    ranked_matches.sort(key=lambda item: item[0], reverse=True)
+
+    return jsonify([item[1] for item in ranked_matches[:20]])
 
 
 @api.route("/trade-evaluation", methods=["POST"])
