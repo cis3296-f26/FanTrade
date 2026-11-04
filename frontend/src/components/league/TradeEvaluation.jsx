@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchJson } from "../lib/api";
+import { fetchJson } from "../../lib/api";
 import "./TradeEvaluation.css";
 
 function PlayerPicker({
@@ -344,3 +344,6 @@ export default function TradeEvaluation() {
         <br /> Multi-player totals do not account for starting lineup
         limits, injuries, or positional needs.
       </p>
+    </section>
+  );
+}
