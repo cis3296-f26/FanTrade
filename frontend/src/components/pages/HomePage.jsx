@@ -29,10 +29,14 @@ export default function HomePage() {
       {/* ── Hero ── */}
       <section className="home-hero">
         <div className="home-hero-field" aria-hidden="true">
-          {[10, 20, 30, 40, 50, 40, 30, 20, 10].map((yard, i) => (
-            <div key={i} className="home-hero-yardline">
-              <span className="home-hero-yard-number">{yard}</span>
-              <span className="home-hero-yard-number">{yard}</span>
+          {[0, 1].map((loop) => (
+            <div className="home-hero-field-group" key={loop}>
+              {[10, 20, 30, 40, 50, 40, 30, 20, 10].map((yard, i) => (
+                <div key={i} className="home-hero-yardline">
+                  <span className="home-hero-yard-number">{yard}</span>
+                  <span className="home-hero-yard-number">{yard}</span>
+                </div>
+              ))}
             </div>
           ))}
         </div>
