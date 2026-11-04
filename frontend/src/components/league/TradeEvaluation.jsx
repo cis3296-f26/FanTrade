@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { useEffect, useState } from "react";
 import { fetchJson } from "../lib/api";
 import "./TradeEvaluation.css";
@@ -351,9 +350,6 @@ export default function TradeEvaluation() {
     <section>
       <h2>Trade Evaluation</h2>
       <p>Select players to compare both sides of a trade.</p>
-
-      {/* Your calculator interface goes here. */}
->>>>>>> origin/main
     </section>
   );
 }
