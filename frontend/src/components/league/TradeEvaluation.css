@@ -314,11 +314,24 @@
   transform: none;
 }
 
+/* ── Animations ── */
+@keyframes trade-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ── Result Section ── */
 .trade-result-section {
   margin-top: 36px;
   padding-top: 24px;
   border-top: 1px solid rgba(245, 247, 250, 0.12);
+  animation: trade-fade-in 0.4s ease forwards;
 }
 
 .trade-verdict-banner {
@@ -517,5 +530,13 @@
   }
   .trade-summary-cards {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trade-result-section,
+  .trade-submit-button {
+    animation: none;
+    transition: none;
   }
 }
