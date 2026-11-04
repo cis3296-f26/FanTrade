@@ -28,7 +28,7 @@ All Flask routes live under the `/api` prefix. The frontend should call them wit
 
 Local setup was verified on macOS using Python 3.9.6.
 
-The current demo does not require API keys or environment variables. An existing Sleeper username is needed to look up a user's leagues.
+The public Sleeper lookup does not require API keys. Account registration, sign-in, and saved leagues require a Turso database and a Flask session secret.
 
 ### Clone the Repository
 
@@ -64,6 +64,29 @@ python -m pip install -r backend/requirements.txt
 ```
 
 The dependency file includes Flask, requests, nfl_data_py, and pandas.
+
+### Configure Account Storage
+
+```text
+TURSO_DATABASE_URL="https://fantrade-db-vercel-icfg-0dusux2mhtocgmhzcsmwalwk.aws-us-east-1.turso.io"
+TURSO_AUTH_TOKEN=""
+FLASK_SECRET_KEY=
+SESSION_COOKIE_SECURE=false
+```
+
+Generate a session secret with:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Initialize or migrate the account tables once after configuring the database:
+
+```bash
+python backend/db.py
+```
+
+Accounts use a username and password. Passwords are stored as hashes. Signed-in users can save Sleeper leagues and open them later from the saved-leagues list without looking up their Sleeper username again.
 
 Then install the frontend dependencies:
 
@@ -151,6 +174,8 @@ The data endpoints return JSON, which can be viewed directly in the browser. Ope
 | `/api/sleeper` | Returns the current NFL state, including season and week information. |
 | `/api/sleeper?username=YOUR_USERNAME` | Returns user and league information for the supplied Sleeper username. |
 | `/api/pbp?team=PHI&season=2025` | Returns a play-by-play summary and sample plays for Philadelphia games in the 2025 season. |
+| `/api/auth/register` and `/api/auth/login` | Create an account or start a signed-in session. |
+| `/api/users/me/leagues` | Save or remove a Sleeper league for the signed-in account. |
 
 To look up Sleeper leagues, replace `YOUR_USERNAME` in the address below with an existing Sleeper username:
 

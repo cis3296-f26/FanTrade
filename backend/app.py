@@ -1,4 +1,9 @@
-from flask import Flask, Blueprint, jsonify, request
+import os
+import re
+from datetime import timedelta
+
+from flask import Flask, Blueprint, jsonify, request, session
+from werkzeug.security import check_password_hash, generate_password_hash
 from sleeper_connection import (
     get_user_leagues,
     get_current_nfl_state,
@@ -13,6 +18,16 @@ from nfl_pbp_connection import get_play_by_play_data, get_summary_stats
 from db import get_db
 
 app = Flask(__name__)
+app.config.update(
+    SECRET_KEY=os.getenv("FLASK_SECRET_KEY"),
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.getenv(
+        "SESSION_COOKIE_SECURE", "true" if os.getenv("VERCEL") else "false"
+    ).lower() not in ("0", "false", "no"),
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+    MAX_CONTENT_LENGTH=16 * 1024,
+)
 api = Blueprint("api", __name__, url_prefix="/api")
 
 PBP_CACHE = {}
@@ -99,87 +114,218 @@ def trade_evaluation():
 
 
 # ------------------------------------------------------------------------------
-# USER DATABASE ROUTES (Async Turso Connection)
+# ACCOUNT AND SAVED-LEAGUE ROUTES
 # ------------------------------------------------------------------------------
 
-@api.route("/users/create", methods=["POST"])
-async def create_user():
-    data = request.get_json() or {}
-    username = data.get("username")
-    email = data.get("email")
+def auth_configuration_error():
+    if not app.config["SECRET_KEY"]:
+        return jsonify({"error": "Account sign-in is not configured on the server."}), 503
+    return None
 
-    if not username or not email:
-        return jsonify({"error": "Username and email are required"}), 400
+
+def account_from_rows(user_row, league_rows):
+    return {
+        "user": {"id": user_row[0], "username": user_row[1]},
+        "saved_leagues": [
+            {
+                "league_id": row[0],
+                "platform": row[1],
+                "league_name": row[2] or row[0],
+            }
+            for row in league_rows
+        ],
+    }
+
+
+async def load_account(client, user_id):
+    user_result = await client.execute(
+        "SELECT id, username FROM users WHERE id = ?",
+        [user_id],
+    )
+    if not user_result.rows:
+        return None
+
+    leagues_result = await client.execute(
+        """
+        SELECT league_id, platform, league_name
+        FROM user_leagues
+        WHERE user_id = ?
+        ORDER BY id
+        """,
+        [user_id],
+    )
+    return account_from_rows(user_result.rows[0], leagues_result.rows)
+
+
+@api.route("/auth/register", methods=["POST"])
+async def register():
+    configuration_error = auth_configuration_error()
+    if configuration_error:
+        return configuration_error
+
+    data = request.get_json(silent=True) or {}
+    username = data.get("username")
+    password = data.get("password")
+    if not isinstance(username, str) or not isinstance(password, str):
+        return jsonify({"error": "Username and password are required."}), 400
+
+    username = username.strip().lower()
+    if not re.fullmatch(r"[a-z0-9_.-]{3,32}", username):
+        return jsonify({
+            "error": "Username must be 3–32 characters using letters, numbers, dots, underscores, or hyphens."
+        }), 400
+    if len(password) < 8 or len(password) > 128:
+        return jsonify({"error": "Password must be between 8 and 128 characters."}), 400
 
     try:
         client = await get_db()
         async with client:
-            res = await client.execute(
-                "INSERT INTO users (username, email) VALUES (?, ?)",
-                [username, email]
+            existing = await client.execute(
+                "SELECT id FROM users WHERE username = ? COLLATE NOCASE",
+                [username],
             )
-            return jsonify({
-                "success": True,
-                "user_id": res.last_insert_rowid,
-                "username": username
-            }), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+            if existing.rows:
+                return jsonify({"error": "That username is already taken."}), 409
+
+            result = await client.execute(
+                "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+                [username, generate_password_hash(password)],
+            )
+            session.clear()
+            session["user_id"] = result.last_insert_rowid
+            session.permanent = True
+            account = await load_account(client, result.last_insert_rowid)
+            return jsonify(account), 201
+    except Exception:
+        app.logger.exception("Unable to register account")
+        return jsonify({"error": "Account registration failed. Please try again."}), 500
 
 
-@api.route("/users/<int:user_id>/link-league", methods=["POST"])
-async def link_league_to_user(user_id):
-    data = request.get_json() or {}
+@api.route("/auth/login", methods=["POST"])
+async def login():
+    configuration_error = auth_configuration_error()
+    if configuration_error:
+        return configuration_error
+
+    data = request.get_json(silent=True) or {}
+    username = data.get("username")
+    password = data.get("password")
+    if not isinstance(username, str) or not isinstance(password, str):
+        return jsonify({"error": "Username and password are required."}), 400
+
+    username = username.strip().lower()
+    try:
+        client = await get_db()
+        async with client:
+            result = await client.execute(
+                """
+                SELECT id, username, password_hash
+                FROM users
+                WHERE username = ? COLLATE NOCASE
+                """,
+                [username],
+            )
+            if (
+                not result.rows
+                or not result.rows[0][2]
+                or not check_password_hash(result.rows[0][2], password)
+            ):
+                return jsonify({"error": "Incorrect username or password."}), 401
+
+            session.clear()
+            session["user_id"] = result.rows[0][0]
+            session.permanent = True
+            account = await load_account(client, result.rows[0][0])
+            return jsonify(account)
+    except Exception:
+        app.logger.exception("Unable to sign in")
+        return jsonify({"error": "Sign-in failed. Please try again."}), 500
+
+
+@api.route("/auth/logout", methods=["POST"])
+def logout():
+    configuration_error = auth_configuration_error()
+    if configuration_error:
+        return configuration_error
+    session.clear()
+    return jsonify({"success": True})
+
+
+@api.route("/auth/me")
+async def current_account():
+    configuration_error = auth_configuration_error()
+    if configuration_error:
+        return configuration_error
+
+    user_id = session.get("user_id")
+    if user_id is None:
+        return jsonify({"user": None, "saved_leagues": []})
+
+    try:
+        client = await get_db()
+        async with client:
+            account = await load_account(client, user_id)
+        if account is None:
+            session.clear()
+            return jsonify({"user": None, "saved_leagues": []})
+        return jsonify(account)
+    except Exception:
+        app.logger.exception("Unable to load account")
+        return jsonify({"error": "Unable to load your account. Please try again."}), 500
+
+
+@api.route("/users/me/leagues", methods=["POST", "DELETE"])
+async def saved_leagues():
+    configuration_error = auth_configuration_error()
+    if configuration_error:
+        return configuration_error
+
+    user_id = session.get("user_id")
+    if user_id is None:
+        return jsonify({"error": "Sign in to manage saved leagues."}), 401
+
+    data = request.get_json(silent=True) or {}
     league_id = data.get("league_id")
     platform = data.get("platform", "sleeper")
-
-    if not league_id:
-        return jsonify({"error": "League ID is required"}), 400
+    if not isinstance(league_id, str) or not league_id.strip():
+        return jsonify({"error": "A league ID is required."}), 400
+    if platform != "sleeper":
+        return jsonify({"error": "Only Sleeper leagues can be saved right now."}), 400
+    league_id = league_id.strip()
 
     try:
         client = await get_db()
         async with client:
-            await client.execute(
-                "INSERT INTO user_leagues (user_id, league_id, platform) VALUES (?, ?, ?)",
-                [user_id, league_id, platform]
-            )
-            return jsonify({
-                "success": True,
-                "message": f"Linked {platform} league {league_id} to user {user_id}"
-            }), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+            if request.method == "POST":
+                league_name = data.get("league_name")
+                if not isinstance(league_name, str) or not league_name.strip():
+                    league_name = league_id
+                await client.execute(
+                    """
+                    INSERT INTO user_leagues (user_id, league_id, platform, league_name)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(user_id, league_id, platform)
+                    DO UPDATE SET league_name = excluded.league_name
+                    """,
+                    [user_id, league_id, platform, league_name.strip()[:200]],
+                )
+            else:
+                await client.execute(
+                    """
+                    DELETE FROM user_leagues
+                    WHERE user_id = ? AND league_id = ? AND platform = ?
+                    """,
+                    [user_id, league_id, platform],
+                )
 
-
-@api.route("/users/<int:user_id>", methods=["GET"])
-async def get_user_profile(user_id):
-    try:
-        client = await get_db()
-        async with client:
-            user_res = await client.execute(
-                "SELECT id, username, email FROM users WHERE id = ?",
-                [user_id]
-            )
-            if not user_res.rows:
-                return jsonify({"error": "User not found"}), 404
-
-            user = {
-                "id": user_res.rows[0][0],
-                "username": user_res.rows[0][1],
-                "email": user_res.rows[0][2]
-            }
-
-            leagues_res = await client.execute(
-                "SELECT league_id, platform FROM user_leagues WHERE user_id = ?",
-                [user_id]
-            )
-            user["saved_leagues"] = [
-                {"league_id": r[0], "platform": r[1]} for r in leagues_res.rows
-            ]
-
-            return jsonify({"user": user})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+            account = await load_account(client, user_id)
+            if account is None:
+                session.clear()
+                return jsonify({"error": "Your account could not be found."}), 401
+            return jsonify(account)
+    except Exception:
+        app.logger.exception("Unable to update saved leagues")
+        return jsonify({"error": "Unable to update saved leagues. Please try again."}), 500
 
 
 # Register the API Blueprint with Flask app
