@@ -99,7 +99,7 @@ export default function LeagueSearch() {
 
   return (
     <section aria-labelledby="league-search-heading">
-      <h2 id="league-search-heading">Find your league</h2>
+      <h1 id="league-search-heading">Find your league</h1>
 
       <p className="muted">
         Enter a Sleeper username to find its leagues for the active season.
