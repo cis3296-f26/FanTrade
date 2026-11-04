@@ -4,7 +4,6 @@ import "./TradeEvaluation.css";
 
 function PlayerPicker({
   side,
-  label,
   selected,
   excluded,
   onAdd,
@@ -61,85 +60,69 @@ function PlayerPicker({
   );
 
   return (
-    <section className="trade-side-card" aria-label={label || side}>
-      <div className="trade-side-header">
-        <h3 className="trade-side-title">{label || side}</h3>
-        <span className="trade-side-count">{selected.length} player{selected.length === 1 ? "" : "s"}</span>
-      </div>
+    <section className="trade-side" aria-label={side}>
+      <h3>{side} ({selected.length})</h3>
 
-      <div className="trade-search-field">
+      <label>
+        Search {side}:
         <input
-          className="trade-search-input"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder={`Search players to add to ${side}…`}
+          placeholder="Search player name…"
           disabled={disabled}
         />
-      </div>
+      </label>
 
-      {loading && <p className="trade-status-hint" role="status">Searching players…</p>}
-      {error && <p className="trade-error-hint" role="alert">{error}</p>}
+      {loading && <p role="status">Searching players…</p>}
+      {error && <p role="alert">{error}</p>}
 
       {!loading && query.trim().length >= 2 && !error && available.length === 0 && (
-        <p className="trade-status-hint">No matching players found.</p>
+        <p>No available matches.</p>
       )}
 
       {available.length > 0 && (
-        <ul className="trade-match-list">
+        <ul className="trade-matches">
           {available.map((player) => (
-            <li key={player.player_id} className="trade-match-item">
-              <div className="trade-player-meta">
-                <span className="trade-player-name">{player.name}</span>
-                <span className="trade-player-tag">
-                  {player.position || "FLEX"} · {player.team || "FA"}
-                </span>
-              </div>
+            <li key={player.player_id}>
+              <span>
+                {player.name} · {player.position || "FLEX"} · {player.team || "FA"}
+              </span>
 
               <button
                 type="button"
-                className="trade-btn-add"
-                disabled={disabled || selected.length >= 8}
+                disabled={disabled || selected.length >= 10}
                 onClick={() => {
                   onAdd(player);
                   setQuery("");
                   setMatches([]);
                 }}
               >
-                + Add
+                Add
               </button>
             </li>
           ))}
         </ul>
       )}
 
-      <div className="trade-selected-container">
-        {selected.length === 0 ? (
-          <p className="trade-empty-hint">No players selected for this side yet.</p>
-        ) : (
-          <ul className="trade-selected-list">
-            {selected.map((player) => (
-              <li key={player.player_id} className="trade-selected-item">
-                <div className="trade-player-meta">
-                  <span className="trade-player-name">{player.name}</span>
-                  <span className="trade-player-tag">
-                    {player.position || "FLEX"} · {player.team || "FA"}
-                  </span>
-                </div>
+      <ul>
+        {selected.map((player) => (
+          <li key={player.player_id}>
+            <span>
+              {player.name} · {player.position || "FLEX"} · {player.team || "FA"}
+            </span>
 
-                <button
-                  type="button"
-                  className="trade-btn-remove"
-                  disabled={disabled}
-                  onClick={() => onRemove(player.player_id)}
-                  title={`Remove ${player.name}`}
-                >
-                  ✕
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onRemove(player.player_id)}
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {selected.length === 0 && <p className="muted">No players selected.</p>}
     </section>
   );
 }
@@ -220,51 +203,45 @@ export default function TradeEvaluation() {
 
   return (
     <section className="trade-evaluator">
-      <div className="trade-intro">
-        <h2 className="trade-heading">Trade Calculator</h2>
-        <p className="trade-subheading">
-          Analyze trade values, find fair deals, and see who wins the trade.
-        </p>
-      </div>
+      <h2>Trade Evaluation</h2>
+      <p>
+        Select players on each side. Compare trade values to determine if a trade is fair, winning, or losing.
+      </p>
 
-      {/* Mode Switcher */}
-      <div className="trade-mode-tabs" role="tablist" aria-label="Trade calculation mode">
+      {/* Mode selection toggle */}
+      <div className="trade-mode-selection">
+        <label>
+          <strong>Evaluation Model: </strong>
+        </label>
         <button
           type="button"
-          role="tab"
-          aria-selected={calcMode === "fancalc"}
-          className={`trade-mode-tab ${calcMode === "fancalc" ? "active" : ""}`}
+          className={calcMode === "fancalc" ? "active-mode" : ""}
           onClick={() => {
             setCalcMode("fancalc");
             clearResult();
           }}
         >
-          FanCalc Consensus
-          <span className="trade-badge-default">Standard</span>
+          FanCalc (Standard)
         </button>
-
+        {" "}
         <button
           type="button"
-          role="tab"
-          aria-selected={calcMode === "experimental"}
-          className={`trade-mode-tab ${calcMode === "experimental" ? "active" : ""}`}
+          className={calcMode === "experimental" ? "active-mode" : ""}
           onClick={() => {
             setCalcMode("experimental");
             clearResult();
           }}
         >
           Experimental (NFL Stats)
-          <span className="trade-badge-experimental">Beta</span>
         </button>
       </div>
 
-      <form onSubmit={evaluate} className="trade-form">
-        {/* Settings Bar */}
-        <div className="trade-settings-bar">
+      <form onSubmit={evaluate}>
+        <div className="trade-settings">
           {calcMode === "fancalc" ? (
             <>
-              <label className="trade-setting-item">
-                <span>League Format</span>
+              <label>
+                League Type
                 <select
                   value={isDynasty ? "dynasty" : "redraft"}
                   disabled={loading}
@@ -278,8 +255,8 @@ export default function TradeEvaluation() {
                 </select>
               </label>
 
-              <label className="trade-setting-item">
-                <span>Scoring (PPR)</span>
+              <label>
+                Scoring
                 <select
                   value={ppr}
                   disabled={loading}
@@ -294,8 +271,8 @@ export default function TradeEvaluation() {
                 </select>
               </label>
 
-              <label className="trade-setting-item">
-                <span>Quarterbacks</span>
+              <label>
+                Quarterbacks
                 <select
                   value={numQbs}
                   disabled={loading}
@@ -309,8 +286,8 @@ export default function TradeEvaluation() {
                 </select>
               </label>
 
-              <label className="trade-setting-item">
-                <span>Teams</span>
+              <label>
+                League Size
                 <select
                   value={numTeams}
                   disabled={loading}
@@ -328,56 +305,53 @@ export default function TradeEvaluation() {
             </>
           ) : (
             <>
-              <div className="trade-experimental-banner">
-                <strong>Experimental Mode:</strong> Compares regular-season per-game
-                averages from NFL play-by-play data. Currently restricted to wide receivers.
-              </div>
+              <label>
+                Season
+                <select
+                  value={season}
+                  disabled={loading}
+                  onChange={(event) => {
+                    setSeason(Number(event.target.value));
+                    clearResult();
+                  }}
+                >
+                  {Array.from(
+                    { length: currentYear - 1998 },
+                    (_, index) => currentYear - index
+                  ).map((seasonYear) => (
+                    <option key={seasonYear}>{seasonYear}</option>
+                  ))}
+                </select>
+              </label>
 
-              <div className="trade-experimental-settings">
-                <label className="trade-setting-item">
-                  <span>Season</span>
-                  <select
-                    value={season}
-                    disabled={loading}
-                    onChange={(event) => {
-                      setSeason(Number(event.target.value));
-                      clearResult();
-                    }}
-                  >
-                    {Array.from(
-                      { length: currentYear - 1998 },
-                      (_, index) => currentYear - index
-                    ).map((seasonYear) => (
-                      <option key={seasonYear}>{seasonYear}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="trade-setting-item">
-                  <span>Scoring</span>
-                  <select
-                    value={ppr}
-                    disabled={loading}
-                    onChange={(event) => {
-                      setPpr(Number(event.target.value));
-                      clearResult();
-                    }}
-                  >
-                    <option value={1}>Full PPR</option>
-                    <option value={0.5}>Half PPR</option>
-                    <option value={0}>Standard</option>
-                  </select>
-                </label>
-              </div>
+              <label>
+                Scoring
+                <select
+                  value={ppr}
+                  disabled={loading}
+                  onChange={(event) => {
+                    setPpr(Number(event.target.value));
+                    clearResult();
+                  }}
+                >
+                  <option value={1}>Full PPR</option>
+                  <option value={0.5}>Half PPR</option>
+                  <option value={0}>Standard</option>
+                </select>
+              </label>
             </>
           )}
         </div>
 
-        {/* Side Selection Columns */}
+        {calcMode === "experimental" && (
+          <p className="experimental-notice">
+            <em>Experimental Mode: Uses NFL play-by-play season statistics (WR only). In development.</em>
+          </p>
+        )}
+
         <div className="trade-columns">
           <PlayerPicker
-            side="give"
-            label="I Give"
+            side="I give"
             selected={give}
             excluded={excluded}
             disabled={loading}
@@ -392,8 +366,7 @@ export default function TradeEvaluation() {
           />
 
           <PlayerPicker
-            side="receive"
-            label="I Receive"
+            side="I receive"
             selected={receive}
             excluded={excluded}
             disabled={loading}
@@ -408,58 +381,55 @@ export default function TradeEvaluation() {
           />
         </div>
 
-        {/* Action Button */}
-        <div className="trade-action-row">
-          <button
-            type="submit"
-            className="trade-submit-btn"
-            disabled={loading || give.length === 0 || receive.length === 0}
-          >
-            {loading ? "Evaluating trade…" : "Evaluate Trade"}
-          </button>
-        </div>
+        <button
+          type="submit"
+          disabled={loading || give.length === 0 || receive.length === 0}
+        >
+          {loading ? "Calculating trade…" : "Evaluate trade"}
+        </button>
       </form>
 
       {error && (
-        <div role="alert" className="trade-error-banner">
+        <p role="alert" className="error-message">
           {error}
-        </div>
+        </p>
       )}
 
-      {/* Result Display */}
+      {/* FanCalc Result Display */}
       {result && result.mode === "fancalc" && (
-        <div className="trade-result-card" role="status">
-          <div className={`trade-verdict-header favors-${(result.favors || "even").toLowerCase()}`}>
-            <span className="trade-verdict-tag">{result.favors === "Even" ? "Balanced" : result.favors === "Receive" ? "Winning Trade" : "Losing Trade"}</span>
-            <h3 className="trade-verdict-title">{result.verdict}</h3>
-          </div>
+        <div className="trade-result" role="status">
+          <h3>
+            {result.favors === "Even" && "🤝 Fair Trade"}
+            {result.favors === "Receive" && "🏆 Winning Trade (Favors You)"}
+            {result.favors === "Give" && "⚠️ Losing Trade (Favors Other Team)"}
+          </h3>
 
-          <div className="trade-summary-grid">
-            <div className="trade-summary-box">
-              <span className="summary-label">You Give</span>
-              <span className="summary-val">{result.give_total.toLocaleString()} pts</span>
-            </div>
+          <p>
+            <strong>Status:</strong> {result.verdict}
+          </p>
 
-            <div className="trade-summary-box">
-              <span className="summary-label">You Receive</span>
-              <span className="summary-val">{result.receive_total.toLocaleString()} pts</span>
-            </div>
+          <p>
+            Give Total: <strong>{result.give_total.toLocaleString()}</strong> pts
+            {" · "}
+            Receive Total: <strong>{result.receive_total.toLocaleString()}</strong> pts
+          </p>
 
-            <div className="trade-summary-box">
-              <span className="summary-label">Net Difference</span>
-              <span className={`summary-val ${result.difference >= 0 ? "positive" : "negative"}`}>
-                {result.difference > 0 ? "+" : ""}
-                {result.difference.toLocaleString()} pts
-                <span className="summary-pct">
-                  ({result.diff_percentage > 0 ? "+" : ""}
-                  {result.diff_percentage}%)
-                </span>
-              </span>
-            </div>
-          </div>
+          <p>
+            Difference:{" "}
+            <strong>
+              {result.difference > 0 ? "+" : ""}
+              {result.difference.toLocaleString()} pts
+            </strong>
+            {" "}
+            ({result.diff_percentage > 0 ? "+" : ""}
+            {result.diff_percentage}%)
+          </p>
 
-          <div className="trade-table-wrapper">
-            <table className="trade-table">
+          <div className="trade-table">
+            <table>
+              <caption>
+                {result.source} · {result.is_dynasty ? "Dynasty" : "Redraft"} ({result.ppr} PPR, {result.num_qbs} QB)
+              </caption>
               <thead>
                 <tr>
                   <th>Side</th>
@@ -478,21 +448,11 @@ export default function TradeEvaluation() {
                 ].flatMap(([sideName, players]) =>
                   players.map((player) => (
                     <tr key={`${sideName}-${player.player_id}`}>
-                      <td>
-                        <span className={`side-pill side-${sideName.toLowerCase()}`}>
-                          {sideName}
-                        </span>
-                      </td>
-                      <td className="player-col-name">{player.name}</td>
+                      <td>{sideName}</td>
+                      <td>{player.name}</td>
                       <td>{player.position}</td>
                       <td>{player.team}</td>
-                      <td className="player-col-value">
-                        {player.unranked ? (
-                          <span className="unranked-label">Waiver / 0</span>
-                        ) : (
-                          player.value.toLocaleString()
-                        )}
-                      </td>
+                      <td>{player.value.toLocaleString()}</td>
                       <td>{player.overall_rank ? `#${player.overall_rank}` : "—"}</td>
                       <td>
                         {player.position_rank
@@ -506,49 +466,42 @@ export default function TradeEvaluation() {
             </table>
           </div>
 
-          {result.attribution && (
-            <div className="trade-attribution">
-              {result.attribution}{" "}
-              <a
-                href={result.attribution_url || "https://fantasycalc.com"}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Visit FantasyCalc →
-              </a>
-            </div>
-          )}
+          <p className="muted">
+            {result.attribution}:{" "}
+            <a
+              href={result.attribution_url || "https://fantasycalc.com"}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              fantasycalc.com
+            </a>
+          </p>
         </div>
       )}
 
       {/* Experimental Result Display */}
       {result && result.mode === "experimental" && (
-        <div className="trade-result-card" role="status">
-          <div className="trade-verdict-header favors-even">
-            <span className="trade-verdict-tag">Experimental Model</span>
-            <h3 className="trade-verdict-title">{result.verdict}</h3>
-          </div>
+        <div className="trade-result" role="status">
+          <h3>{result.verdict}</h3>
 
-          <div className="trade-summary-grid">
-            <div className="trade-summary-box">
-              <span className="summary-label">Give Avg</span>
-              <span className="summary-val">{result.give_total.toFixed(2)} pts/g</span>
-            </div>
-            <div className="trade-summary-box">
-              <span className="summary-label">Receive Avg</span>
-              <span className="summary-val">{result.receive_total.toFixed(2)} pts/g</span>
-            </div>
-            <div className="trade-summary-box">
-              <span className="summary-label">Net Difference</span>
-              <span className="summary-val">
-                {result.difference > 0 ? "+" : ""}
-                {result.difference.toFixed(2)} pts/g
-              </span>
-            </div>
-          </div>
+          <p>
+            Give: <strong>{result.give_total.toFixed(2)}</strong>
+            {" · "}
+            Receive: <strong>{result.receive_total.toFixed(2)}</strong>
+            {" "}points/game
+          </p>
 
-          <div className="trade-table-wrapper">
-            <table className="trade-table">
+          <p>
+            Difference:{" "}
+            <strong>
+              {result.difference > 0 ? "+" : ""}
+              {result.difference.toFixed(2)}
+            </strong>
+            {" "}points/game
+          </p>
+
+          <div className="trade-table">
+            <table>
               <caption>
                 {result.season} · {result.source}
               </caption>
@@ -557,10 +510,10 @@ export default function TradeEvaluation() {
                   <th>Side</th>
                   <th>Player</th>
                   <th>Games</th>
-                  <th>Rec/g</th>
-                  <th>Rec Yds/g</th>
-                  <th>Rec TD/g</th>
-                  <th>Pts/game</th>
+                  <th>Rec/game</th>
+                  <th>Rec yards/game</th>
+                  <th>Rec TD/game</th>
+                  <th>Points/game</th>
                 </tr>
               </thead>
               <tbody>
@@ -570,17 +523,13 @@ export default function TradeEvaluation() {
                 ].flatMap(([sideName, players]) =>
                   players.map((player) => (
                     <tr key={`${sideName}-${player.player_id}`}>
-                      <td>
-                        <span className={`side-pill side-${sideName.toLowerCase()}`}>
-                          {sideName}
-                        </span>
-                      </td>
-                      <td className="player-col-name">{player.name}</td>
+                      <td>{sideName}</td>
+                      <td>{player.name}</td>
                       <td>{player.games}</td>
                       <td>{player.averages?.receptions?.toFixed(2) ?? "—"}</td>
                       <td>{player.averages?.receiving_yards?.toFixed(2) ?? "—"}</td>
                       <td>{player.averages?.receiving_tds?.toFixed(2) ?? "—"}</td>
-                      <td className="player-col-value">{player.value?.toFixed(2)}</td>
+                      <td>{player.value?.toFixed(2)}</td>
                     </tr>
                   ))
                 )}
@@ -588,8 +537,8 @@ export default function TradeEvaluation() {
             </table>
           </div>
 
-          <p className="trade-disclaimer muted">
-            Experimental scoring: 0.1/receiving or rushing yd, 6/TD, 0.04/pass yd, 4/pass TD, -2/INT or fumble. Season totals ÷ recorded games. Multi-player totals do not account for roster limits or injury risk.
+          <p className="muted">
+            Scoring: 0.1/receiving or rushing yard; 6/TD; 0.04/passing yard; 4/passing TD; -2/INT or fumble; 2/2pt conversion. Season totals ÷ recorded games. WR only.
           </p>
         </div>
       )}

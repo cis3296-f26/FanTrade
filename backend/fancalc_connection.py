@@ -157,22 +157,27 @@ def evaluate_fancalc_trade(
     max_side = max(give_total, receive_total)
     diff_pct = round((difference / max_side) * 100, 1) if max_side > 0 else 0.0
 
-    # Trade fairness determination
-    threshold = max(350, int(max_side * 0.05))
+    # Trade fairness determination: within 5-6% or 400 points is considered a fair/even deal
+    threshold = max(400, int(max_side * 0.06))
     if abs(difference) <= threshold:
         verdict = "Fair Trade"
         favors = "Even"
+        trade_label = "Fair Trade"
     elif difference > 0:
-        verdict = f"Favors Receive (+{difference:,} pts / +{abs(diff_pct)}%)"
+        verdict = f"Winning Trade (+{difference:,} pts)"
         favors = "Receive"
+        trade_label = "Winning Trade"
     else:
-        verdict = f"Favors Give (-{abs(difference):,} pts / -{abs(diff_pct)}%)"
+        verdict = f"Losing Trade (-{abs(difference):,} pts)"
         favors = "Give"
+        trade_label = "Losing Trade"
 
     return {
         "mode": "fancalc",
         "verdict": verdict,
         "favors": favors,
+        "trade_label": trade_label,
+        "threshold": threshold,
         "give_total": give_total,
         "receive_total": receive_total,
         "difference": difference,
