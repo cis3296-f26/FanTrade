@@ -70,13 +70,15 @@ function PlayerPicker({
         </span>
       </div>
 
-      <div className="field">
-        <label htmlFor={`search-${side}`}>Search {label || side}</label>
+      <div className="trade-search-field">
+        <label htmlFor={`search-${side}`} className="trade-sr">
+          Search player to add to {label || side}
+        </label>
         <input
           id={`search-${side}`}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search by player name…"
+          placeholder="Search player to add…"
           disabled={disabled}
         />
       </div>
