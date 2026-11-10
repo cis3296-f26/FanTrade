@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { label: "About", path: "/about" },
   { label: "League View", path: "/search" },
   { label: "Trade Calculator", path: "/trade" },
+  { label: "Available Players", path: "/available-players" },
 ];
 
 export default function Navbar() {

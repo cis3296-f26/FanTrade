@@ -5,6 +5,7 @@ import HomePage from "./components/pages/HomePage";
 import AboutPage from "./components/pages/AboutPage";
 import TradeCalculatorPage from "./components/pages/TradeCalculatorPage";
 import LeaguePage from "./components/pages/LeaguePage";
+import AvailablePlayersPage from "./components/pages/AvailablePlayersPage";
 
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/search" element={<LeaguePage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/trade" element={<TradeCalculatorPage />} />
+          <Route path="/available-players" element={<AvailablePlayersPage />} />
         </Routes>
 
         <Footer />

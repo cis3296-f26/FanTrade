@@ -1,0 +1,332 @@
+.available-players-page {
+  min-height: 100vh;
+  background: #031919;
+  color: #F5F7FA;
+  display: flex;
+  flex-direction: column;
+}
+
+.available-players-main {
+  width: 100%;
+  max-width: 1150px;
+  margin: 0 auto;
+  padding: 40px 32px 80px;
+  flex: 1;
+}
+
+.available-players-main h1 {
+  margin: 0 0 8px;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 400;
+  color: #F5F7FA;
+}
+
+.available-players-intro {
+  margin: 0 0 28px;
+  color: rgba(245, 247, 250, 0.65);
+}
+
+.available-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 28px 0 24px;
+  border-bottom: 1px solid rgba(245, 247, 250, 0.14);
+}
+
+.available-tab,
+.trending-type {
+  min-height: 42px;
+  padding: 8px 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: rgba(245, 247, 250, 0.6);
+  font: inherit;
+  cursor: pointer;
+}
+
+.available-tab:hover,
+.trending-type:hover {
+  color: #F5F7FA;
+}
+
+.available-tab.active,
+.trending-type.active {
+  border-bottom-color: #369C6E;
+  color: #F5F7FA;
+}
+
+.available-league-form {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.available-field {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.available-field label {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(245, 247, 250, 0.5);
+}
+
+.available-field input,
+.available-field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid rgba(245, 247, 250, 0.15);
+  border-radius: 4px;
+  background: rgba(245, 247, 250, 0.06);
+  color: #F5F7FA;
+  font: inherit;
+  font-size: 15px;
+}
+
+.available-field input::placeholder {
+  color: rgba(245, 247, 250, 0.3);
+}
+
+.available-field input:focus-visible,
+.available-field select:focus-visible,
+.available-league-form button:focus-visible,
+.available-error button:focus-visible {
+  outline: 2px solid #3D9F97;
+  outline-offset: 2px;
+}
+
+.available-league-form button,
+.available-error button {
+  min-height: 44px;
+  padding: 10px 22px;
+  border: 0;
+  border-radius: 4px;
+  background: #369C6E;
+  color: #F5F7FA;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.available-league-form button:hover:not(:disabled),
+.available-error button:hover {
+  background: #3D9F97;
+}
+
+.available-league-form button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.available-saved-leagues,
+.available-league-select {
+  max-width: 600px;
+  margin: 20px 0;
+}
+
+.available-selected-league {
+  margin: 24px 0;
+  color: rgba(245, 247, 250, 0.72);
+}
+
+.available-player-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px;
+  gap: 16px;
+  margin: 28px 0 18px;
+}
+
+.available-projection-note,
+.trending-description {
+  margin: 12px 0;
+  color: rgba(245, 247, 250, 0.5);
+  font-size: 14px;
+}
+
+.available-results-count {
+  color: rgba(245, 247, 250, 0.6);
+  font-size: 14px;
+}
+
+.available-player-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.available-player-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(245, 247, 250, 0.1);
+  border-radius: 6px;
+  background: rgba(245, 247, 250, 0.04);
+}
+
+.available-player-rank {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(54, 156, 110, 0.2);
+  color: #8ed3ad;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.available-player-card > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.available-player-card h2 {
+  margin: 0 0 4px;
+  color: #F5F7FA;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.available-player-card p {
+  margin: 0;
+  color: rgba(245, 247, 250, 0.55);
+  font-size: 14px;
+}
+
+.available-player-points,
+.trending-count {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  color: #8ed3ad;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.available-player-points small,
+.trending-count small {
+  margin-top: 3px;
+  color: rgba(245, 247, 250, 0.48);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.trending-controls {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.trending-type-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.trending-type {
+  border: 1px solid rgba(245, 247, 250, 0.15);
+  border-radius: 4px;
+}
+
+.trending-type.active {
+  border-color: #369C6E;
+  background: rgba(54, 156, 110, 0.14);
+}
+
+.trending-lookback {
+  max-width: 210px;
+}
+
+.available-injury {
+  flex: none;
+  padding: 3px 7px;
+  border-radius: 3px;
+  background: rgba(255, 183, 77, 0.12);
+  color: #ffcc80;
+  font-size: 12px;
+}
+
+.available-empty {
+  padding: 16px;
+  border: 1px dashed rgba(245, 247, 250, 0.2);
+  border-radius: 4px;
+  color: rgba(245, 247, 250, 0.55);
+}
+
+.available-lookup-error {
+  margin: 20px 0;
+  padding: 14px 16px;
+  border-left: 3px solid #f87171;
+  border-radius: 0 4px 4px 0;
+  background: rgba(248, 113, 113, 0.08);
+  color: #fca5a5;
+}
+
+.available-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 20px 0;
+  padding: 12px 16px;
+  border-left: 3px solid #f87171;
+  border-radius: 0 4px 4px 0;
+  background: rgba(248, 113, 113, 0.08);
+  color: #fca5a5;
+}
+
+.available-error p {
+  margin: 0;
+}
+
+.available-note {
+  margin-top: 24px;
+  color: rgba(245, 247, 250, 0.45);
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .available-players-main {
+    padding: 32px 20px 60px;
+  }
+
+  .available-league-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .available-player-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .trending-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .trending-lookback {
+    max-width: none;
+  }
+
+  .available-player-card {
+    gap: 9px;
+    padding: 12px;
+  }
+}
