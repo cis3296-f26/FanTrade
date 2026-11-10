@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import * as ToggleGroup from "@radix-ui/react-toggle-group";
 import { fetchJson } from "../../lib/api";
 import "./TradeEvaluation.css";
 
@@ -290,29 +291,24 @@ export default function TradeEvaluation() {
       </p>
 
       {/* Mode Toggle */}
-      <div className="trade-mode-toggle" role="group" aria-label="Calculation Mode">
-        <button
-          type="button"
-          className={`toggle-option ${calcMode === "fancalc" ? "active" : ""}`}
-          onClick={() => {
-            setCalcMode("fancalc");
-            clearResult();
-          }}
-        >
+      <ToggleGroup.Root
+        type="single"
+        value={calcMode}
+        onValueChange={(val) => { if (val) { setCalcMode(val); clearResult(); } }}
+        className="trade-mode-toggle"
+        aria-label="Calculation Mode"
+      >
+        <div
+          className="toggle-slider"
+          style={{ transform: calcMode === "experimental" ? "translateX(100%)" : "translateX(0)" }}
+        />
+        <ToggleGroup.Item value="fancalc" className={`toggle-option ${calcMode === "fancalc" ? "active" : ""}`}>
           FanCalc Consensus <span className="tag-recommended">Standard</span>
-        </button>
-
-        <button
-          type="button"
-          className={`toggle-option ${calcMode === "experimental" ? "active" : ""}`}
-          onClick={() => {
-            setCalcMode("experimental");
-            clearResult();
-          }}
-        >
+        </ToggleGroup.Item>
+        <ToggleGroup.Item value="experimental" className={`toggle-option ${calcMode === "experimental" ? "active" : ""}`}>
           Experimental (NFL Stats) <span className="tag-beta">Beta</span>
-        </button>
-      </div>
+        </ToggleGroup.Item>
+      </ToggleGroup.Root>
 
       <form onSubmit={evaluate} className="trade-form">
         {/* Settings Bar */}
