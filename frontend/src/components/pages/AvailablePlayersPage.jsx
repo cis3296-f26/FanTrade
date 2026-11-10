@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchJson } from "../../lib/api";
 import { useAuth } from "../../lib/AuthContext";
 import useScrollReveal from "../../hooks/useScrollReveal";
@@ -29,6 +29,8 @@ export default function AvailablePlayersPage() {
   const [trendType, setTrendType] = useState("add");
   const [lookbackHours, setLookbackHours] = useState("24");
   const [trendingPlayers, setTrendingPlayers] = useState([]);
+  const [selectedTrendingPlayer, setSelectedTrendingPlayer] = useState(null);
+  const [failedPlayerImageId, setFailedPlayerImageId] = useState(null);
   const [loadingLeagues, setLoadingLeagues] = useState(false);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [loadingTrending, setLoadingTrending] = useState(false);
@@ -36,8 +38,20 @@ export default function AvailablePlayersPage() {
   const [trendingError, setTrendingError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [trendingAttempt, setTrendingAttempt] = useState(0);
+  const playerDialogRef = useRef(null);
 
   useScrollReveal();
+
+  useEffect(() => {
+    const dialog = playerDialogRef.current;
+    if (!dialog) return;
+
+    if (selectedTrendingPlayer && !dialog.open) {
+      dialog.showModal();
+    } else if (!selectedTrendingPlayer && dialog.open) {
+      dialog.close();
+    }
+  }, [selectedTrendingPlayer]);
 
   const selectedLeague =
     leagues.find((league) => league.league_id === leagueId) ||
@@ -411,19 +425,25 @@ export default function AvailablePlayersPage() {
                 ) : (
                   <div className="available-player-grid">
                     {trendingPlayers.map((player, index) => (
-                      <article className="available-player-card" key={player.player_id}>
+                      <button
+                        className="available-player-card trending-player-card"
+                        key={player.player_id}
+                        type="button"
+                        aria-label={`View ${player.name} details`}
+                        onClick={() => setSelectedTrendingPlayer(player)}
+                      >
                         <span className="available-player-rank" aria-label={`Rank ${index + 1}`}>
                           {index + 1}
                         </span>
                         <div>
-                          <h2>{player.name}</h2>
+                          <span className="available-player-name">{player.name}</span>
                           <p>{player.position} <span aria-hidden="true">·</span> {player.team}</p>
                         </div>
-                        <span className="trending-count">
+                        <span className={`trending-count trending-count-${trendType}`}>
                           {player.count}
                           <small>{trendType === "add" ? "adds" : "drops"}</small>
                         </span>
-                      </article>
+                      </button>
                     ))}
                   </div>
                 )
@@ -434,6 +454,63 @@ export default function AvailablePlayersPage() {
             </div>
         </section>
       </main>
+      <dialog
+        ref={playerDialogRef}
+        className="trending-player-dialog"
+        aria-labelledby="trending-player-dialog-title"
+        onClose={() => setSelectedTrendingPlayer(null)}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            event.currentTarget.close();
+          }
+        }}
+      >
+        {selectedTrendingPlayer && (
+          <div className="trending-player-dialog-content">
+            <button
+              className="trending-player-dialog-close"
+              type="button"
+              aria-label="Close player details"
+              onClick={() => playerDialogRef.current?.close()}
+            >
+              ×
+            </button>
+            <div className="trending-player-dialog-photo">
+              {failedPlayerImageId !== selectedTrendingPlayer.player_id &&
+                selectedTrendingPlayer.avatar_url && (
+                  <img
+                    src={selectedTrendingPlayer.avatar_url}
+                    alt={`${selectedTrendingPlayer.name} headshot`}
+                    onError={() => setFailedPlayerImageId(selectedTrendingPlayer.player_id)}
+                  />
+                )}
+              {failedPlayerImageId === selectedTrendingPlayer.player_id ||
+              !selectedTrendingPlayer.avatar_url ? (
+                <span aria-hidden="true">
+                  {selectedTrendingPlayer.name
+                    .split(/\s+/)
+                    .map((part) => part[0])
+                    .join("")
+                    .slice(0, 2)}
+                </span>
+              ) : null}
+            </div>
+            <div className="trending-player-dialog-details">
+              <p className="trending-player-dialog-label">Player profile</p>
+              <h2 id="trending-player-dialog-title">{selectedTrendingPlayer.name}</h2>
+              <p className="trending-player-dialog-meta">
+                {selectedTrendingPlayer.position}
+                <span aria-hidden="true"> · </span>
+                {selectedTrendingPlayer.team}
+              </p>
+              <p className="trending-player-dialog-activity">
+                Trending {trendType === "add" ? "adds" : "drops"}
+                <strong>{selectedTrendingPlayer.count}</strong>
+              </p>
+            </div>
+          </div>
+        )}
+      </dialog>
     </div>
   );
 }
