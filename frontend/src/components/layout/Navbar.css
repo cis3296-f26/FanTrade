@@ -75,19 +75,9 @@
 
 .navbar-account-button,
 .navbar-account-panel button[type="submit"] {
-  border: none;
-  border-radius: 4px;
-  padding: 9px 14px;
-  color: #369C6E;
-  background: #F5F7FA;
+  padding: 6px 12px;
+  font-size: 13px;
   cursor: pointer;
-  transition: opacity 0.15s ease, color 0.15s ease;
-}
-
-.navbar-account-button:hover,
-.navbar-account-panel button[type="submit"]:hover {
-  opacity: 0.92;
-  color: #031919;
 }
 
 .navbar-account-button:disabled,
@@ -134,7 +124,7 @@
 
 .navbar-account-error {
   margin: 0;
-  color: #ffb4b4;
+  color: #fca5a5;
   font-size: 13px;
 }
 

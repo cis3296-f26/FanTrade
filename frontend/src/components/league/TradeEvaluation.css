@@ -5,10 +5,6 @@
 }
 
 .trade-title {
-  font-family: 'Times New Roman', Times, serif;
-  font-size: clamp(2rem, 5vw, 3rem);
-  font-weight: 400;
-  color: #F5F7FA;
   margin: 0 0 8px;
 }
 
@@ -372,39 +368,6 @@
 }
 
 /* ── Buttons ── */
-.btn-action-small {
-  padding: 6px 14px;
-  border: none;
-  border-radius: 4px;
-  background: #369C6E;
-  color: #F5F7FA;
-  font-size: 13px;
-  font-weight: 400;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  white-space: nowrap;
-}
-
-.btn-action-small:hover:not(:disabled) {
-  background: #3D9F97;
-}
-
-.btn-remove-small {
-  background: transparent;
-  border: 1px solid rgba(245, 247, 250, 0.15);
-  color: rgba(245, 247, 250, 0.5);
-  border-radius: 4px;
-  padding: 4px 10px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.15s ease;
-}
-
-.btn-remove-small:hover {
-  border-color: #f87171;
-  color: #fca5a5;
-  background: rgba(248, 113, 113, 0.1);
-}
 
 .trade-action-row {
   display: flex;
@@ -413,27 +376,7 @@
 }
 
 .trade-submit-button {
-  min-height: 44px;
-  padding: 12px 36px;
-  border: none;
-  border-radius: 4px;
-  background: #369C6E;
-  color: #F5F7FA;
-  font-size: 16px;
-  font-weight: 400;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.1s ease;
-}
-
-.trade-submit-button:hover:not(:disabled) {
-  background: #3D9F97;
-  transform: translateY(-1px);
-}
-
-.trade-submit-button:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  transform: none;
+  white-space: nowrap;
 }
 
 /* ── Animations ── */

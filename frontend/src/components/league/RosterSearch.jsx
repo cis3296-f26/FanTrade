@@ -79,6 +79,7 @@ export default function RosterSearch({ leagueId }) {
 
           <button
             type="button"
+            className="btn btn-primary btn-md"
             onClick={() => setAttempt((current) => current + 1)}
           >
             Try again
@@ -141,7 +142,7 @@ export default function RosterSearch({ leagueId }) {
 
             <button
               type="button"
-              className="secondary-button"
+              className="btn btn-secondary"
               disabled={!query}
               onClick={() => setQuery("")}
             >

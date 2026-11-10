@@ -51,7 +51,7 @@ export default function HomePage() {
               Smarter fantasy football trades, powered by real NFL data.
             </p>
           </div>
-          <button className="home-cta" onClick={() => navigate("/search")}>
+          <button className="btn btn-ghost btn-lg home-cta" onClick={() => navigate("/search")}>
             Get started
           </button>
         </div>

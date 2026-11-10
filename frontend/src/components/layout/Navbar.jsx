@@ -93,7 +93,7 @@ export default function Navbar() {
             <span className="navbar-username">Signed in as {user.username}</span>
             <button
               type="button"
-              className="navbar-account-button"
+              className="btn btn-ghost navbar-account-button"
               onClick={handleLogout}
               disabled={loading}
             >
@@ -103,7 +103,7 @@ export default function Navbar() {
         ) : (
           <button
             type="button"
-            className="navbar-account-button"
+            className="btn btn-ghost navbar-account-button"
             aria-expanded={accountOpen}
             aria-controls="navbar-account-panel"
             onClick={() => {
@@ -148,7 +148,7 @@ export default function Navbar() {
                 {accountError || authError}
               </p>
             )}
-            <button type="submit" disabled={accountBusy}>
+            <button type="submit" className="btn btn-ghost" disabled={accountBusy}>
               {accountBusy
                 ? "Please wait..."
                 : accountMode === "register"

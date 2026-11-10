@@ -99,7 +99,7 @@ export default function LeagueSearch() {
 
   return (
     <section aria-labelledby="league-search-heading">
-      <h1 id="league-search-heading">Find your league</h1>
+      <h1 id="league-search-heading" className="page-title">Find your league</h1>
 
       <p className="muted">
         Enter a Sleeper username to find its leagues for the active season.
@@ -123,6 +123,7 @@ export default function LeagueSearch() {
 
         <button
           type="submit"
+          className="btn btn-primary btn-md"
           disabled={loading || !username.trim()}
         >
           {loading ? "Finding leagues..." : "Find leagues"}
@@ -181,7 +182,7 @@ export default function LeagueSearch() {
             <div className="save-league-control">
               <button
                 type="button"
-                className="secondary-button"
+                className="btn btn-secondary"
                 onClick={handleSaveLeague}
                 disabled={saving || selectedLeagueIsSaved}
               >
@@ -230,7 +231,7 @@ export default function LeagueSearch() {
               {savedLeagueId && (
                 <button
                   type="button"
-                  className="secondary-button"
+                  className="btn btn-secondary"
                   onClick={handleRemoveSavedLeague}
                   disabled={saving}
                 >

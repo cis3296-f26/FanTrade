@@ -28,10 +28,7 @@
 }
 
 #league-search-heading {
-  font-family: 'Times New Roman', Times, serif;
-  font-size: clamp(2rem, 5vw, 3rem);
-  font-weight: 400;
-  color: #F5F7FA;
+  margin: 0 0 8px;
 }
 
 @media (max-width: 600px) {

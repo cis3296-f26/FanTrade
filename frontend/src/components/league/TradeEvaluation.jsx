@@ -138,7 +138,7 @@ function PlayerPicker({
                 )}
                 <button
                   type="button"
-                  className="btn-action-small"
+                  className="btn btn-primary btn-sm"
                   disabled={disabled || selected.length >= 10}
                   onClick={() => {
                     onAdd(player);
@@ -177,7 +177,7 @@ function PlayerPicker({
                   )}
                   <button
                     type="button"
-                    className="btn-remove-small"
+                    className="btn btn-danger btn-xs"
                     disabled={disabled}
                     onClick={() => onRemove(player.player_id)}
                     title={`Remove ${player.name}`}
@@ -284,7 +284,7 @@ export default function TradeEvaluation() {
 
   return (
     <div className="trade-app">
-      <h1 className="trade-title">Trade Calculator</h1>
+      <h1 className="trade-title page-title">Trade Calculator</h1>
       <p className="trade-description">
         Evaluate trades with real-market consensus player values, or test experimental stats-based models.
       </p>
@@ -475,7 +475,7 @@ export default function TradeEvaluation() {
         <div className="trade-action-row">
           <button
             type="submit"
-            className="trade-submit-button"
+            className="btn btn-primary btn-lg trade-submit-button"
             disabled={loading || give.length === 0 || receive.length === 0}
           >
             {loading ? "Evaluating Trade…" : "Evaluate Trade"}
