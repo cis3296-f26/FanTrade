@@ -297,6 +297,38 @@ def trade_evaluation():
             "error": "Could not calculate trade with FantasyCalc values. Please try again."
         }), 503
 
+@api.route("/trade-suggestions", methods=["POST"])
+def trade_suggestions():
+    from fancalc_connection import fetch_fancalc_values
+    from trade_suggestions import (
+        generate_trade_suggestion, league_trade_settings, validate_suggestion_request,
+    )
+
+    try:
+        # Validate selections first, then load rosters on the server so player
+        # ownership and league rules don't depend on data sent by the browser.
+        league_id, your_id, partner_id, position = validate_suggestion_request(
+            request.get_json(silent=True)
+        )
+        league = get_league_rosters(league_id)
+        if not isinstance(league, dict) or league.get("error"):
+            return jsonify({"error": "Could not load this league. Try again."}), 503
+        roster_ids = {str(r["roster_id"]) for r in league.get("rosters", [])}
+        if str(your_id) not in roster_ids or str(partner_id) not in roster_ids:
+            raise ValueError("Both teams must belong to the selected league.")
+        _, settings = league_trade_settings(league)
+        # One value snapshot is shared by all candidates for this request.
+        values = fetch_fancalc_values(**settings)
+        if not values:
+            return jsonify({"error": "Player valuation data is unavailable. Try again."}), 503
+        return jsonify(generate_trade_suggestion(league, your_id, partner_id, position, values))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        app.logger.exception("Trade suggestion generation failed")
+        return jsonify({"error": "Could not generate a suggestion with the available data. Try again."}), 503
+
+
 # ------------------------------------------------------------------------------
 # ACCOUNT AND SAVED-LEAGUE ROUTES
 # ------------------------------------------------------------------------------
