@@ -1,0 +1,27 @@
+.field-scene-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: #0a1a1a;
+  border-radius: 8px;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.field-scene-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.field-scene-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: rgba(245, 247, 250, 0.45);
+  font-size: 14px;
+  text-align: center;
+  padding: 24px;
+}

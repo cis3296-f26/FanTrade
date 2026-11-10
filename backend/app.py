@@ -1,4 +1,6 @@
+import json
 import os
+import pathlib
 import re
 from datetime import timedelta
 from dotenv import load_dotenv
@@ -37,6 +39,8 @@ app.config.update(
     MAX_CONTENT_LENGTH=16 * 1024,
 )
 api = Blueprint("api", __name__, url_prefix="/api")
+
+DATA_DIR = pathlib.Path(__file__).parent / "data"
 
 PBP_CACHE = {}
 COLS = ["game_id", "season", "week", "home_team", "away_team", "play_type", "yards_gained", "desc"]
@@ -627,6 +631,15 @@ async def saved_leagues():
     except Exception:
         app.logger.exception("Unable to update saved leagues")
         return jsonify({"error": "Unable to update saved leagues. Please try again."}), 500
+
+
+@api.route("/usage-field/players")
+def usage_field_players():
+    path = DATA_DIR / "usage_shares.json"
+    if not path.exists():
+        return jsonify({"error": "Usage data not available"}), 503
+    with open(path) as f:
+        return jsonify(json.load(f))
 
 
 # Register the API Blueprint with Flask app
