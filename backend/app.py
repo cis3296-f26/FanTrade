@@ -14,6 +14,8 @@ from sleeper_connection import (
     get_user_leagues,
     get_current_nfl_state,
     get_league_rosters,
+    get_available_players,
+    get_trending_players,
     get_nfl_team_roster,
     get_all_nfl_teams,
     search_nfl_players,
@@ -56,6 +58,57 @@ def sleeper_demo():
 def sleeper_rosters_demo(league_id=None):
     target_id = league_id or request.args.get("league_id", "1258183584468971520")
     return jsonify(get_league_rosters(target_id))
+
+
+@api.route("/sleeper/available-players/<league_id>")
+def sleeper_available_players(league_id):
+    position = request.args.get("position", "").upper().strip()
+    if position and position not in {"QB", "RB", "WR", "TE", "K", "DEF"}:
+        return jsonify({"error": "Position must be QB, RB, WR, TE, K, or DEF."}), 400
+
+    limit = request.args.get("limit", 100, type=int)
+    if limit is None:
+        limit = 100
+
+    result = get_available_players(
+        league_id,
+        query=request.args.get("q", ""),
+        position=position or None,
+        limit=limit,
+    )
+    if "error" in result:
+        message = result["error"].lower()
+        if "not found" in message:
+            status = 404
+        elif "unavailable" in message:
+            status = 503
+        else:
+            status = 502
+        return jsonify(result), status
+    return jsonify(result)
+
+
+@api.route("/sleeper/trending/<trend_type>")
+def sleeper_trending_players(trend_type):
+    clean_type = trend_type.lower().strip()
+    if clean_type not in {"add", "drop"}:
+        return jsonify({"error": "Trend type must be 'add' or 'drop'."}), 400
+
+    try:
+        lookback_hours = int(request.args.get("lookback_hours", "24"))
+        limit = int(request.args.get("limit", "25"))
+    except ValueError:
+        return jsonify({"error": "lookback_hours and limit must be integers."}), 400
+    if not 1 <= lookback_hours <= 168:
+        return jsonify({"error": "lookback_hours must be between 1 and 168."}), 400
+    if not 1 <= limit <= 100:
+        return jsonify({"error": "limit must be between 1 and 100."}), 400
+
+    result = get_trending_players(clean_type, lookback_hours, limit)
+    if "error" in result:
+        status = 503 if "unavailable" in result["error"].lower() else 502
+        return jsonify(result), status
+    return jsonify(result)
 
 
 @api.route("/espn")
