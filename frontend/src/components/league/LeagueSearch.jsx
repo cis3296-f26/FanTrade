@@ -2,7 +2,7 @@ import { useState } from "react";
 import { fetchJson } from "../../lib/api";
 import { useAuth } from "../../lib/AuthContext";
 import RosterSearch from "./RosterSearch";
-
+import Select, { SelectItem } from "../ui/Select";
 import "./LeagueSearch.css";
 
 export default function LeagueSearch() {
@@ -153,28 +153,22 @@ export default function LeagueSearch() {
           ) : (
             <div className="field">
               <label htmlFor="league-select">Choose a league</label>
-
-              <select
+              <Select
                 id="league-select"
                 value={leagueId}
-                onChange={(event) => {
-                  setLeagueId(event.target.value);
+                placeholder="Select a league"
+                onChange={(v) => {
+                  setLeagueId(v);
                   setSavedLeagueId("");
                   setSavedLeagueError("");
                 }}
               >
-                <option value="">Select a league</option>
-
                 {profile.leagues.map((league) => (
-                  <option
-                    key={league.league_id}
-                    value={league.league_id}
-                  >
-                    {league.name} · {league.total_rosters} teams ·{" "}
-                    {league.scoring_type}
-                  </option>
+                  <SelectItem key={league.league_id} value={league.league_id}>
+                    {league.name} · {league.total_rosters} teams · {league.scoring_type}
+                  </SelectItem>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
 
@@ -209,25 +203,22 @@ export default function LeagueSearch() {
           ) : (
             <div className="field">
               <label htmlFor="saved-league-select">Open a saved league</label>
-              <select
+              <Select
                 id="saved-league-select"
                 value={savedLeagueId}
-                onChange={(event) => {
-                  setSavedLeagueId(event.target.value);
+                placeholder="Select a saved league"
+                onChange={(v) => {
+                  setSavedLeagueId(v);
                   setLeagueId("");
                   setSavedLeagueError("");
                 }}
               >
-                <option value="">Select a saved league</option>
                 {savedLeagues.map((league) => (
-                  <option
-                    key={`${league.platform}:${league.league_id}`}
-                    value={league.league_id}
-                  >
+                  <SelectItem key={`${league.platform}:${league.league_id}`} value={league.league_id}>
                     {league.league_name}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
+              </Select>
               {savedLeagueId && (
                 <button
                   type="button"

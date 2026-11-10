@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import * as ToggleGroup from "@radix-ui/react-toggle-group";
 import { fetchJson } from "../../lib/api";
+import Select, { SelectItem } from "../ui/Select";
 import "./TradeEvaluation.css";
 
 function PlayerPicker({
@@ -317,108 +318,90 @@ export default function TradeEvaluation() {
             <>
               <div className="field">
                 <label htmlFor="select-league-format">League Format</label>
-                <select
+                <Select
                   id="select-league-format"
                   value={isDynasty ? "dynasty" : "redraft"}
                   disabled={loading}
-                  onChange={(e) => {
-                    setIsDynasty(e.target.value === "dynasty");
-                    clearResult();
-                  }}
+                  onChange={(v) => { setIsDynasty(v === "dynasty"); clearResult(); }}
                 >
-                  <option value="redraft">Redraft</option>
-                  <option value="dynasty">Dynasty</option>
-                </select>
+                  <SelectItem value="redraft">Redraft</SelectItem>
+                  <SelectItem value="dynasty">Dynasty</SelectItem>
+                </Select>
               </div>
 
               <div className="field">
                 <label htmlFor="select-ppr">Scoring</label>
-                <select
+                <Select
                   id="select-ppr"
-                  value={ppr}
+                  value={String(ppr)}
                   disabled={loading}
-                  onChange={(e) => {
-                    setPpr(Number(e.target.value));
-                    clearResult();
-                  }}
+                  onChange={(v) => { setPpr(Number(v)); clearResult(); }}
                 >
-                  <option value={1}>1.0 PPR</option>
-                  <option value={0.5}>0.5 Half-PPR</option>
-                  <option value={0}>0.0 Standard</option>
-                </select>
+                  <SelectItem value={1}>1.0 PPR</SelectItem>
+                  <SelectItem value={0.5}>0.5 Half-PPR</SelectItem>
+                  <SelectItem value={0}>0.0 Standard</SelectItem>
+                </Select>
               </div>
 
               <div className="field">
                 <label htmlFor="select-qbs">Quarterbacks</label>
-                <select
+                <Select
                   id="select-qbs"
-                  value={numQbs}
+                  value={String(numQbs)}
                   disabled={loading}
-                  onChange={(e) => {
-                    setNumQbs(Number(e.target.value));
-                    clearResult();
-                  }}
+                  onChange={(v) => { setNumQbs(Number(v)); clearResult(); }}
                 >
-                  <option value={1}>1 QB</option>
-                  <option value={2}>2 QB / Superflex</option>
-                </select>
+                  <SelectItem value={1}>1 QB</SelectItem>
+                  <SelectItem value={2}>2 QB / Superflex</SelectItem>
+                </Select>
               </div>
 
               <div className="field">
                 <label htmlFor="select-teams">League Size</label>
-                <select
+                <Select
                   id="select-teams"
-                  value={numTeams}
+                  value={String(numTeams)}
                   disabled={loading}
-                  onChange={(e) => {
-                    setNumTeams(Number(e.target.value));
-                    clearResult();
-                  }}
+                  onChange={(v) => { setNumTeams(Number(v)); clearResult(); }}
                 >
-                  <option value={8}>8 Teams</option>
-                  <option value={10}>10 Teams</option>
-                  <option value={12}>12 Teams</option>
-                  <option value={14}>14 Teams</option>
-                </select>
+                  <SelectItem value={8}>8 Teams</SelectItem>
+                  <SelectItem value={10}>10 Teams</SelectItem>
+                  <SelectItem value={12}>12 Teams</SelectItem>
+                  <SelectItem value={14}>14 Teams</SelectItem>
+                </Select>
               </div>
             </>
           ) : (
             <>
               <div className="field">
                 <label htmlFor="select-season">Season</label>
-                <select
+                <Select
                   id="select-season"
-                  value={season}
+                  value={String(season)}
                   disabled={loading}
-                  onChange={(event) => {
-                    setSeason(Number(event.target.value));
-                    clearResult();
-                  }}
+                  onChange={(v) => { setSeason(Number(v)); clearResult(); }}
                 >
                   {Array.from(
                     { length: currentYear - 1998 },
                     (_, index) => currentYear - index
                   ).map((seasonYear) => (
-                    <option key={seasonYear}>{seasonYear}</option>
+                    <SelectItem key={seasonYear} value={seasonYear}>{seasonYear}</SelectItem>
                   ))}
-                </select>
+                </Select>
               </div>
 
               <div className="field">
                 <label htmlFor="select-exp-ppr">Scoring</label>
-                <select
+                <Select
                   id="select-exp-ppr"
-                  value={ppr}
+                  value={String(ppr)}
                   disabled={loading}
-                  onChange={(event) => {
-                    setPpr(Number(event.target.value));
-                    clearResult();
-                  }}
+                  onChange={(v) => { setPpr(Number(v)); clearResult(); }}
                 >
-                  <option value={1}>Full PPR</option>
-                  <option value={0.5}>Half PPR</option>
-                  <option value={0}>Standard</option>
-                </select>
+                  <SelectItem value={1}>Full PPR</SelectItem>
+                  <SelectItem value={0.5}>Half PPR</SelectItem>
+                  <SelectItem value={0}>Standard</SelectItem>
+                </Select>
               </div>
             </>
           )}
