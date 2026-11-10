@@ -53,3 +53,74 @@
   padding-inline: 12px;
   white-space: normal;
 }
+
+.search-app .trade-suggestion-result {
+  min-width: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.search-app .trade-suggestion-result h4,
+.search-app .trade-suggestion-result h5 {
+  margin: 0 0 10px;
+  color: var(--text-bright);
+  font-size: 15px;
+}
+
+.search-app .suggestion-package {
+  margin: 16px 0;
+}
+
+.search-app .suggestion-package ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.search-app .suggestion-package li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-app .suggestion-package strong {
+  color: var(--text-bright);
+}
+
+.search-app .suggestion-totals {
+  margin: 16px 0;
+}
+
+.search-app .suggestion-totals > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 8px 0;
+}
+
+.search-app .suggestion-totals dd {
+  margin: 0;
+  color: var(--text-bright);
+}
+
+.search-app .suggestion-reasons,
+.search-app .suggestion-warnings {
+  padding-left: 18px;
+}
+
+.search-app .suggestion-reasons li,
+.search-app .suggestion-warnings li {
+  margin: 8px 0;
+}
+
+.search-app .suggestion-warnings {
+  color: #ffe0b2;
+}
+
+.search-app .trade-suggestion-result a {
+  color: var(--teal);
+}
