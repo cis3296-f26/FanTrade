@@ -6,6 +6,8 @@ FanTrade is a fantasy football project that brings together Sleeper league infor
 
 The current proof of concept includes a Flask backend (in `backend/`) with API endpoints for viewing Sleeper league information and NFL play-by-play summaries, and a Vite + React frontend (in `frontend/`) that calls those endpoints.
 
+The frontend includes an Available Players page with a ranked free-agent list and Sleeper trending adds/drops, with search and position filters.
+
 ## Project Structure
 
 ```text
@@ -173,6 +175,8 @@ The data endpoints return JSON, which can be viewed directly in the browser. Ope
 | `/api/health` | Returns `{"status":"ok"}` to confirm the backend is running. |
 | `/api/sleeper` | Returns the current NFL state, including season and week information. |
 | `/api/sleeper?username=YOUR_USERNAME` | Returns user and league information for the supplied Sleeper username. |
+| `/api/sleeper/available-players/LEAGUE_ID` | Returns up to 100 unrostered players; accepts optional `q` and `position` filters. |
+| `/api/sleeper/trending/add` and `/api/sleeper/trending/drop` | Returns Sleeper trending adds or drops; accepts `lookback_hours` and `limit`. |
 | `/api/pbp?team=PHI&season=2025` | Returns a play-by-play summary and sample plays for Philadelphia games in the 2025 season. |
 | `/api/auth/register` and `/api/auth/login` | Create an account or start a signed-in session. |
 | `/api/users/me/leagues` | Save or remove a Sleeper league for the signed-in account. |

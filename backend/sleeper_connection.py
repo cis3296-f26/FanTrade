@@ -537,6 +537,168 @@ def get_league_rosters(league_id: str, resolve_names: bool = True):
     }
 
 
+def get_available_players(league_id: str, query: str = "", position: str = None, limit: int = 100):
+    """Returns active fantasy players who are not rostered in the Sleeper league."""
+    clean_id = str(league_id).strip()
+    if not clean_id:
+        return {"error": "League ID cannot be empty"}
+
+    try:
+        rosters_resp = requests.get(f"{BASE_URL}/league/{clean_id}/rosters", timeout=10)
+    except requests.exceptions.RequestException:
+        return {"error": "Could not reach Sleeper. Please try again."}
+    if rosters_resp.status_code == 404:
+        return {"error": f"Sleeper league '{clean_id}' not found"}
+    if rosters_resp.status_code != 200:
+        return {"error": f"Failed to retrieve rosters for league {clean_id}"}
+
+    try:
+        rosters = rosters_resp.json()
+    except ValueError:
+        return {"error": "Sleeper returned invalid roster data"}
+    if not isinstance(rosters, list):
+        return {"error": "Sleeper returned invalid roster data"}
+
+    rostered_ids = set()
+    for roster in rosters:
+        if not isinstance(roster, dict):
+            continue
+        for field in ("players", "starters", "reserve", "taxi"):
+            roster_players = roster.get(field) or []
+            if not isinstance(roster_players, list):
+                continue
+            rostered_ids.update(
+                str(player_id)
+                for player_id in roster_players
+                if player_id and str(player_id) != "0"
+            )
+
+    players = _load_players()
+    if not players:
+        return {"error": "Player directory is unavailable. Try again."}
+
+    nfl_state = get_current_nfl_state()
+    season = nfl_state.get("season")
+    week = nfl_state.get("week")
+    projections = _load_weekly_projections(season, week) if season and week else {}
+
+    clean_query = query.strip().lower()
+    clean_position = position.upper().strip() if position else None
+
+    def projected_points(player_id):
+        projection = projections.get(str(player_id)) or {}
+        return projection.get("pts_ppr") if isinstance(projection, dict) else None
+
+    available = []
+    for player_id, player in players.items():
+        player_position = player.get("position")
+        if (
+            str(player_id) in rostered_ids
+            or player.get("status") != "Active"
+            or player_position not in {"QB", "RB", "WR", "TE", "K"}
+            or (clean_position and player_position != clean_position)
+        ):
+            continue
+
+        name = (player.get("full_name") or "").strip()
+        if clean_query and clean_query not in name.lower():
+            continue
+
+        available.append({
+            "player_id": str(player_id),
+            "name": name or f"Player {player_id}",
+            "position": player_position,
+            "team": player.get("team") or "FA",
+            "age": player.get("age"),
+            "injury_status": player.get("injury_status") or "Healthy",
+            "search_rank": player.get("search_rank"),
+            "expected_points": projected_points(player_id),
+            "avatar_url": f"https://sleepercdn.com/content/nfl/players/thumb/{player_id}.jpg",
+        })
+
+    if not clean_position or clean_position == "DEF":
+        for team, team_name in NFL_TEAMS.items():
+            defense_name = f"{team_name} Defense"
+            if team not in rostered_ids and clean_query in defense_name.lower():
+                available.append({
+                    "player_id": team,
+                    "name": defense_name,
+                    "position": "DEF",
+                    "team": team,
+                    "age": None,
+                    "injury_status": "Healthy",
+                    "search_rank": None,
+                    "expected_points": projected_points(team),
+                    "avatar_url": f"https://sleepercdn.com/images/team_logos/nfl/{team.lower()}.png",
+                })
+
+    def sort_key(player):
+        try:
+            rank = int(player["search_rank"])
+        except (TypeError, ValueError):
+            rank = 999999
+        try:
+            expected_points = float(player["expected_points"])
+        except (TypeError, ValueError):
+            expected_points = None
+        return (
+            expected_points is None,
+            -(expected_points or 0),
+            rank,
+            player["name"].lower(),
+        )
+
+    available.sort(key=sort_key)
+    return {"league_id": clean_id, "players": available[:max(1, min(limit, 200))]}
+
+
+def get_trending_players(trend_type: str, lookback_hours: int = 24, limit: int = 25):
+    """Fetches Sleeper trending adds or drops and resolves player details."""
+    clean_type = str(trend_type).lower().strip()
+    if clean_type not in {"add", "drop"}:
+        return {"error": "Trend type must be 'add' or 'drop'."}
+
+    try:
+        response = requests.get(
+            f"{BASE_URL}/players/nfl/trending/{clean_type}",
+            params={"lookback_hours": lookback_hours, "limit": limit},
+            timeout=10,
+        )
+    except requests.exceptions.RequestException:
+        return {"error": "Could not reach Sleeper. Please try again."}
+
+    if response.status_code != 200:
+        return {"error": f"Sleeper could not retrieve trending {clean_type}s."}
+
+    try:
+        trending = response.json()
+    except ValueError:
+        return {"error": "Sleeper returned invalid trending data."}
+    if not isinstance(trending, list):
+        return {"error": "Sleeper returned invalid trending data."}
+
+    players = _load_players()
+    if not players:
+        return {"error": "Player directory is unavailable. Try again."}
+
+    results = []
+    for item in trending:
+        if not isinstance(item, dict) or not item.get("player_id"):
+            continue
+        player_id = str(item["player_id"])
+        player = players.get(player_id, {})
+        results.append({
+            "player_id": player_id,
+            "name": player.get("full_name") or f"Player {player_id}",
+            "position": player.get("position") or "N/A",
+            "team": player.get("team") or "FA",
+            "count": item.get("count", 0),
+            "avatar_url": f"https://sleepercdn.com/content/nfl/players/thumb/{player_id}.jpg",
+        })
+
+    return {"trend_type": clean_type, "players": results}
+
+
 if __name__ == "__main__":
     import sys
     print("--- Sleeper Connection Test ---")

@@ -244,7 +244,7 @@
   transform: translateY(-7px) rotate(-45deg);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 900px) {
   .navbar {
     flex-wrap: wrap;
     column-gap: 12px;
