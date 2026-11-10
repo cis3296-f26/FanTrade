@@ -118,6 +118,7 @@ def pbp_demo():
 def trade_players():
     query = request.args.get("q", "").strip().lower()
     popular = request.args.get("popular") in ("true", "1")
+    ids_param = request.args.get("ids", "").strip()
 
     players = _load_players()
 
@@ -126,12 +127,29 @@ def trade_players():
             "error": "Player directory is unavailable. Try again."
         }), 503
 
-    # Fast cached lookup for FanCalc trade values to prioritize fantasy-relevant stars
+    try:
+        is_dynasty = request.args.get("isDynasty", "").lower() in ("true", "1")
+        num_qbs = int(request.args.get("numQbs", 1))
+        num_teams = int(request.args.get("numTeams", 12))
+        ppr = float(request.args.get("ppr", 1.0))
+    except (ValueError, TypeError):
+        is_dynasty = False
+        num_qbs = 1
+        num_teams = 12
+        ppr = 1.0
+
+    # Fast cached lookup for FanCalc trade values matching selected settings
     fc_values = {}
     fc_top_list = []
+    fc_data = []
     try:
         from fancalc_connection import fetch_fancalc_values
-        fc_data = fetch_fancalc_values()
+        fc_data = fetch_fancalc_values(
+            is_dynasty=is_dynasty,
+            num_qbs=num_qbs,
+            num_teams=num_teams,
+            ppr=ppr,
+        )
         for item in fc_data:
             p = item.get("player") or {}
             sid = p.get("sleeperId")
@@ -147,6 +165,20 @@ def trade_players():
                 })
     except Exception:
         fc_values = {}
+        fc_data = []
+
+    # Batch ID lookup to keep already-selected player cards in sync with changed settings
+    if ids_param:
+        from fancalc_connection import build_player_value_lookup
+        resolve_player = build_player_value_lookup(
+            fc_data, players, allow_fancalc_ids=True
+        )
+        resolved_list = []
+        for pid in ids_param.split(","):
+            clean_id = pid.strip()
+            if clean_id:
+                resolved_list.append(resolve_player(clean_id))
+        return jsonify(resolved_list)
 
     if popular or (not query and "popular" in request.args):
         return jsonify(fc_top_list[:12])
