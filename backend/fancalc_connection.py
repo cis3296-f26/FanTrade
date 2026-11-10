@@ -11,7 +11,7 @@ import time
 import urllib.parse
 import urllib.request
 import json
-from typing import Dict, List, Any, Optional
+from typing import Callable, Dict, List, Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,27 @@ def evaluate_fancalc_trade(
         ppr=ppr,
     )
 
-    # Build lookup tables
+    # Keep the calculator's existing ID fallback while sharing the lookup code.
+    resolve_player = build_player_value_lookup(
+        fc_data, sleeper_players, allow_fancalc_ids=True
+    )
+    give_players = [resolve_player(pid) for pid in give_ids]
+    receive_players = [resolve_player(pid) for pid in receive_ids]
+
+    return evaluate_player_values(
+        give_players, receive_players,
+        is_dynasty=is_dynasty, num_qbs=num_qbs, num_teams=num_teams, ppr=ppr,
+    )
+
+
+def build_player_value_lookup(
+    fc_data: List[Dict[str, Any]],
+    sleeper_players: Optional[Dict[str, Any]] = None,
+    *,
+    allow_fancalc_ids: bool = False,
+) -> Callable[[str], Dict[str, Any]]:
+    """Prepare a reusable player lookup without fetching any data."""
+    # Build these once so every candidate uses the same set of market values.
     sleeper_map = {}
     name_map = {}
     fc_id_map = {}
@@ -117,7 +137,8 @@ def evaluate_fancalc_trade(
             if s_name:
                 matched_item = name_map.get(s_name)
 
-        if not matched_item:
+        # Sleeper-only callers must not confuse IDs from the two services.
+        if not matched_item and allow_fancalc_ids:
             matched_item = fc_id_map.get(pid_str)
 
         if matched_item:
@@ -147,9 +168,21 @@ def evaluate_fancalc_trade(
             "unranked": True,
         }
 
-    give_players = [resolve_player(pid) for pid in give_ids]
-    receive_players = [resolve_player(pid) for pid in receive_ids]
+    # Each call returns a fresh player record, leaving the cached data untouched.
+    return resolve_player
 
+
+def evaluate_player_values(
+    give_players: List[Dict[str, Any]],
+    receive_players: List[Dict[str, Any]],
+    *,
+    is_dynasty: bool = False,
+    num_qbs: int = 1,
+    num_teams: int = 12,
+    ppr: float = 1.0,
+) -> Dict[str, Any]:
+    """Score already-valued players without another fetch or lookup rebuild."""
+    # Keep the calculator's totals and verdict rules in one place for both features.
     give_total = sum(p["value"] for p in give_players)
     receive_total = sum(p["value"] for p in receive_players)
     difference = receive_total - give_total

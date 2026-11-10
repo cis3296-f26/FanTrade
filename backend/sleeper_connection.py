@@ -528,6 +528,11 @@ def get_league_rosters(league_id: str, resolve_names: bool = True):
         "name": league_data.get("name", "Unnamed League"),
         "season": league_data.get("season"),
         "total_rosters": len(cleaned_rosters),
+        # Keep the full slot list, including slots with no starter assigned yet.
+        "roster_positions": list(roster_positions),
+        # Pass through league rules so trade analysis doesn't assume default scoring.
+        "scoring_settings": dict(league_data.get("scoring_settings") or {}),
+        "settings": dict(league_data.get("settings") or {}),
         "rosters": cleaned_rosters
     }
 

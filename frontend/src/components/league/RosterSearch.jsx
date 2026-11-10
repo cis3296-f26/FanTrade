@@ -188,8 +188,8 @@ export default function RosterSearch({ leagueId }) {
             </div>
           )}
         </div>
-        {/* Use all league teams here so roster search doesn't change the dropdown options. */}
-        <TradeSuggestion teams={league.rosters} />
+        {/* Pass the league ID for generation and all teams so search doesn't filter the dropdowns. */}
+        <TradeSuggestion leagueId={leagueId} teams={league.rosters} />
       </div>
     </section>
   );
