@@ -43,8 +43,8 @@ export default function HomePage() {
             <div className="home-hero-lockup">
               <img src={helmet} alt="" className="home-hero-helmet" aria-hidden="true" />
               <h1 className="home-title">
-                <span>fan</span>
-                <span>trade.</span>
+                <span>Fan</span>
+                <span>Trade.</span>
               </h1>
             </div>
             <p className="home-subtitle">
@@ -80,7 +80,7 @@ export default function HomePage() {
         <div className="home-section-inner home-about-inner">
           <div className="home-about-label reveal">about the project</div>
           <p className="home-about-body reveal">
-            fantrade brings together Sleeper league data and NFL
+            FanTrade brings together Sleeper league data and NFL
             play-by-play statistics to support trade analysis. Look up
             any Sleeper username to browse their leagues, explore every
             roster, and dig into the player-level numbers behind each

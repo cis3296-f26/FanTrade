@@ -68,7 +68,7 @@ export default function Navbar() {
     <nav className="navbar">
       <div className="navbar-logo" onClick={() => handleNav("/")}>
         <img src={helmet} alt="" className="navbar-helmet" aria-hidden="true" />
-        <span>fantrade.</span>
+        <span>FanTrade.</span>
       </div>
 
       <button
