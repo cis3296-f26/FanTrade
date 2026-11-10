@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchJson } from "../../lib/api";
 import TradeSuggestionResult from "./TradeSuggestionResult";
+import Select, { SelectItem } from "../ui/Select";
 import "./TradeSuggestion.css";
 
 // Both team cards use the same selector, with their own label and selected team.
@@ -26,24 +27,23 @@ function TeamSelector({ id, label, teams, value, excludedId, onChange, disabled 
       {/* Send selection changes back to the panel so it can keep both cards in sync. */}
       <div className="field trade-team-options">
         <label htmlFor={id}>{label}</label>
-        <select
+        <Select
           id={id}
           value={value}
+          placeholder="Select a team"
           disabled={disabled}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(v) => onChange(v)}
         >
-          <option value="">Select a team</option>
-          {/* List every team, but disable the one already chosen in the other card. */}
           {teams.map((team) => (
-            <option
+            <SelectItem
               key={team.roster_id}
               value={String(team.roster_id)}
               disabled={String(team.roster_id) === excludedId}
             >
               {team.team_name} · {team.owner_name}
-            </option>
+            </SelectItem>
           ))}
-        </select>
+        </Select>
       </div>
     </details>
   );
@@ -127,23 +127,20 @@ export default function TradeSuggestion({ leagueId, teams = [], loading = false,
       {/* Any lets the backend choose a need; the other options narrow the target. */}
       <div className="field">
         <label htmlFor="trade-position">Position to acquire</label>
-        <select
+        <Select
           id="trade-position"
           value={position}
           disabled={disabled}
-          onChange={(event) => {
-            clearSuggestion();
-            setPosition(event.target.value);
-          }}
+          onChange={(v) => { clearSuggestion(); setPosition(v); }}
           aria-describedby="trade-position-help"
         >
-          <option value="ANY">Any</option>
-          <option value="QB">QB</option>
-          <option value="RB">RB</option>
-          <option value="WR">WR</option>
-          <option value="TE">TE</option>
-          <option value="FLEX">FLEX</option>
-        </select>
+          <SelectItem value="ANY">Any</SelectItem>
+          <SelectItem value="QB">QB</SelectItem>
+          <SelectItem value="RB">RB</SelectItem>
+          <SelectItem value="WR">WR</SelectItem>
+          <SelectItem value="TE">TE</SelectItem>
+          <SelectItem value="FLEX">FLEX</SelectItem>
+        </Select>
         <p id="trade-position-help" className="muted">
           Any covers QB, RB, WR, and TE. FLEX covers RB, WR, and TE.
         </p>

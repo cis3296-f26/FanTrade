@@ -15,7 +15,7 @@ export default function AboutPage() {
   return (
     <div className="about-page">
       <main className="about-main">
-        <h1 className="about-title reveal">About FanTrade</h1>
+        <h1 className="about-title page-title reveal">About FanTrade</h1>
 
         <section className="about-section reveal">
           <h2>Built by</h2>

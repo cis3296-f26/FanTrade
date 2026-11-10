@@ -55,7 +55,6 @@
 }
 
 .search-app input,
-.search-app select,
 .search-app button {
   min-height: 44px;
   border-radius: 4px;
@@ -63,8 +62,7 @@
   font-size: 16px;
 }
 
-.search-app input,
-.search-app select {
+.search-app input {
   width: 100%;
   padding: 10px 14px;
   border: 1px solid rgba(245, 247, 250, 0.15);
@@ -73,8 +71,7 @@
   transition: border-color 0.15s ease;
 }
 
-.search-app input:hover,
-.search-app select:hover {
+.search-app input:hover {
   border-color: rgba(245, 247, 250, 0.25);
 }
 
@@ -82,34 +79,7 @@
   color: rgba(245, 247, 250, 0.3);
 }
 
-.search-app button {
-  padding: 10px 22px;
-  border: none;
-  background: #369C6E;
-  color: #F5F7FA;
-  font-weight: 400;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.1s ease;
-  white-space: nowrap;
-}
-
-.search-app button:hover:not(:disabled) {
-  background: #3D9F97;
-  transform: translateY(-1px);
-}
-
-.search-app button:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.search-app button:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
 .search-app input:focus-visible,
-.search-app select:focus-visible,
-.search-app button:focus-visible,
 .search-app summary:focus-visible {
   outline: 2px solid #3D9F97;
   outline-offset: 2px;

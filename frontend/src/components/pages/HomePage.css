@@ -164,33 +164,7 @@
 }
 
 .home-cta {
-  padding: 13px 36px;
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 15px;
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  color: #369C6E;
-  background: #F5F7FA;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: opacity 0.15s ease, transform 0.1s ease, color 0.15s ease;
   animation: fade-up 0.7s 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.home-cta:hover {
-  opacity: 0.92;
-  color: #031919;
-  transform: translateY(-1px);
-}
-
-.home-cta:active {
-  transform: translateY(0);
-}
-
-.home-cta:focus-visible {
-  outline: 3px solid rgba(245, 247, 250, 0.7);
-  outline-offset: 3px;
 }
 
 /* ── Features ── */

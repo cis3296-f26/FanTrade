@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import * as ToggleGroup from "@radix-ui/react-toggle-group";
 import { fetchJson } from "../../lib/api";
+import Select, { SelectItem } from "../ui/Select";
 import "./TradeEvaluation.css";
 
 function PlayerPicker({
@@ -152,7 +154,7 @@ function PlayerPicker({
                 )}
                 <button
                   type="button"
-                  className="btn-action-small"
+                  className="btn btn-primary btn-sm"
                   disabled={disabled || selected.length >= 10}
                   onClick={() => {
                     onAdd(player);
@@ -191,7 +193,7 @@ function PlayerPicker({
                   )}
                   <button
                     type="button"
-                    className="btn-remove-small"
+                    className="btn btn-danger btn-xs"
                     disabled={disabled}
                     onClick={() => onRemove(player.player_id)}
                     title={`Remove ${player.name}`}
@@ -348,35 +350,30 @@ export default function TradeEvaluation() {
 
   return (
     <div className="trade-app">
-      <h1 className="trade-title">Trade Calculator</h1>
+      <h1 className="trade-title page-title">Trade Calculator</h1>
       <p className="trade-description">
         Evaluate trades with real-market consensus player values, or test experimental stats-based models.
       </p>
 
       {/* Mode Toggle */}
-      <div className="trade-mode-toggle" role="group" aria-label="Calculation Mode">
-        <button
-          type="button"
-          className={`toggle-option ${calcMode === "fancalc" ? "active" : ""}`}
-          onClick={() => {
-            setCalcMode("fancalc");
-            clearResult();
-          }}
-        >
+      <ToggleGroup.Root
+        type="single"
+        value={calcMode}
+        onValueChange={(val) => { if (val) { setCalcMode(val); clearResult(); } }}
+        className="trade-mode-toggle"
+        aria-label="Calculation Mode"
+      >
+        <div
+          className="toggle-slider"
+          style={{ transform: calcMode === "experimental" ? "translateX(100%)" : "translateX(0)" }}
+        />
+        <ToggleGroup.Item value="fancalc" className={`toggle-option ${calcMode === "fancalc" ? "active" : ""}`}>
           FanCalc Consensus <span className="tag-recommended">Standard</span>
-        </button>
-
-        <button
-          type="button"
-          className={`toggle-option ${calcMode === "experimental" ? "active" : ""}`}
-          onClick={() => {
-            setCalcMode("experimental");
-            clearResult();
-          }}
-        >
+        </ToggleGroup.Item>
+        <ToggleGroup.Item value="experimental" className={`toggle-option ${calcMode === "experimental" ? "active" : ""}`}>
           Experimental (NFL Stats) <span className="tag-beta">Beta</span>
-        </button>
-      </div>
+        </ToggleGroup.Item>
+      </ToggleGroup.Root>
 
       <form onSubmit={evaluate} className="trade-form">
         {/* Settings Bar */}
@@ -385,108 +382,90 @@ export default function TradeEvaluation() {
             <>
               <div className="field">
                 <label htmlFor="select-league-format">League Format</label>
-                <select
+                <Select
                   id="select-league-format"
                   value={isDynasty ? "dynasty" : "redraft"}
                   disabled={loading}
-                  onChange={(e) => {
-                    setIsDynasty(e.target.value === "dynasty");
-                    clearResult();
-                  }}
+                  onChange={(v) => { setIsDynasty(v === "dynasty"); clearResult(); }}
                 >
-                  <option value="redraft">Redraft</option>
-                  <option value="dynasty">Dynasty</option>
-                </select>
+                  <SelectItem value="redraft">Redraft</SelectItem>
+                  <SelectItem value="dynasty">Dynasty</SelectItem>
+                </Select>
               </div>
 
               <div className="field">
                 <label htmlFor="select-ppr">Scoring</label>
-                <select
+                <Select
                   id="select-ppr"
-                  value={ppr}
+                  value={String(ppr)}
                   disabled={loading}
-                  onChange={(e) => {
-                    setPpr(Number(e.target.value));
-                    clearResult();
-                  }}
+                  onChange={(v) => { setPpr(Number(v)); clearResult(); }}
                 >
-                  <option value={1}>1.0 PPR</option>
-                  <option value={0.5}>0.5 Half-PPR</option>
-                  <option value={0}>0.0 Standard</option>
-                </select>
+                  <SelectItem value={1}>1.0 PPR</SelectItem>
+                  <SelectItem value={0.5}>0.5 Half-PPR</SelectItem>
+                  <SelectItem value={0}>0.0 Standard</SelectItem>
+                </Select>
               </div>
 
               <div className="field">
                 <label htmlFor="select-qbs">Quarterbacks</label>
-                <select
+                <Select
                   id="select-qbs"
-                  value={numQbs}
+                  value={String(numQbs)}
                   disabled={loading}
-                  onChange={(e) => {
-                    setNumQbs(Number(e.target.value));
-                    clearResult();
-                  }}
+                  onChange={(v) => { setNumQbs(Number(v)); clearResult(); }}
                 >
-                  <option value={1}>1 QB</option>
-                  <option value={2}>2 QB / Superflex</option>
-                </select>
+                  <SelectItem value={1}>1 QB</SelectItem>
+                  <SelectItem value={2}>2 QB / Superflex</SelectItem>
+                </Select>
               </div>
 
               <div className="field">
                 <label htmlFor="select-teams">League Size</label>
-                <select
+                <Select
                   id="select-teams"
-                  value={numTeams}
+                  value={String(numTeams)}
                   disabled={loading}
-                  onChange={(e) => {
-                    setNumTeams(Number(e.target.value));
-                    clearResult();
-                  }}
+                  onChange={(v) => { setNumTeams(Number(v)); clearResult(); }}
                 >
-                  <option value={8}>8 Teams</option>
-                  <option value={10}>10 Teams</option>
-                  <option value={12}>12 Teams</option>
-                  <option value={14}>14 Teams</option>
-                </select>
+                  <SelectItem value={8}>8 Teams</SelectItem>
+                  <SelectItem value={10}>10 Teams</SelectItem>
+                  <SelectItem value={12}>12 Teams</SelectItem>
+                  <SelectItem value={14}>14 Teams</SelectItem>
+                </Select>
               </div>
             </>
           ) : (
             <>
               <div className="field">
                 <label htmlFor="select-season">Season</label>
-                <select
+                <Select
                   id="select-season"
-                  value={season}
+                  value={String(season)}
                   disabled={loading}
-                  onChange={(event) => {
-                    setSeason(Number(event.target.value));
-                    clearResult();
-                  }}
+                  onChange={(v) => { setSeason(Number(v)); clearResult(); }}
                 >
                   {Array.from(
                     { length: currentYear - 1998 },
                     (_, index) => currentYear - index
                   ).map((seasonYear) => (
-                    <option key={seasonYear}>{seasonYear}</option>
+                    <SelectItem key={seasonYear} value={seasonYear}>{seasonYear}</SelectItem>
                   ))}
-                </select>
+                </Select>
               </div>
 
               <div className="field">
                 <label htmlFor="select-exp-ppr">Scoring</label>
-                <select
+                <Select
                   id="select-exp-ppr"
-                  value={ppr}
+                  value={String(ppr)}
                   disabled={loading}
-                  onChange={(event) => {
-                    setPpr(Number(event.target.value));
-                    clearResult();
-                  }}
+                  onChange={(v) => { setPpr(Number(v)); clearResult(); }}
                 >
-                  <option value={1}>Full PPR</option>
-                  <option value={0.5}>Half PPR</option>
-                  <option value={0}>Standard</option>
-                </select>
+                  <SelectItem value={1}>Full PPR</SelectItem>
+                  <SelectItem value={0.5}>Half PPR</SelectItem>
+                  <SelectItem value={0}>Standard</SelectItem>
+                </Select>
               </div>
             </>
           )}
@@ -541,7 +520,7 @@ export default function TradeEvaluation() {
         <div className="trade-action-row">
           <button
             type="submit"
-            className="trade-submit-button"
+            className="btn btn-primary btn-lg trade-submit-button"
             disabled={loading || give.length === 0 || receive.length === 0}
           >
             {loading ? "Evaluating Trade…" : "Evaluate Trade"}
