@@ -116,11 +116,8 @@ def pbp_demo():
 
 @api.route("/trade-evaluation/players")
 def trade_players():
-    # Identity lookup only: avoids loading projections just to search names.
     query = request.args.get("q", "").strip().lower()
-
-    if len(query) < 2:
-        return jsonify([])
+    popular = request.args.get("popular") in ("true", "1")
 
     players = _load_players()
 
@@ -129,75 +126,175 @@ def trade_players():
             "error": "Player directory is unavailable. Try again."
         }), 503
 
-    matches = [
-        {
-            "player_id": str(pid),
-            "name": player.get("full_name"),
-            "team": player.get("team") or "FA",
-        }
-        for pid, player in players.items()
-        if player.get("position") in {"QB", "WR", "RB", "TE", "K", "DEF"}
-        and query in (player.get("full_name") or "").lower()
-        ]
+    # Fast cached lookup for FanCalc trade values to prioritize fantasy-relevant stars
+    fc_values = {}
+    fc_top_list = []
+    try:
+        from fancalc_connection import fetch_fancalc_values
+        fc_data = fetch_fancalc_values()
+        for item in fc_data:
+            p = item.get("player") or {}
+            sid = p.get("sleeperId")
+            val = int(item.get("value", 0))
+            if sid and val > 0:
+                fc_values[str(sid)] = val
+                fc_top_list.append({
+                    "player_id": str(sid),
+                    "name": p.get("name"),
+                    "team": p.get("maybeTeam") or "FA",
+                    "position": p.get("position") or "FLEX",
+                    "value": val,
+                })
+    except Exception:
+        fc_values = {}
 
-    return jsonify(
-        sorted(matches, key=lambda player: player["name"])[:20]
-    )
+    if popular or (not query and "popular" in request.args):
+        return jsonify(fc_top_list[:12])
+
+    if len(query) < 2:
+        return jsonify([])
+
+    ranked_matches = []
+    for pid, player in players.items():
+        if player.get("position") not in {"QB", "WR", "RB", "TE", "K", "DEF"}:
+            continue
+
+        name = (player.get("full_name") or "").strip()
+        name_lower = name.lower()
+        last_name = (player.get("last_name") or "").strip().lower()
+
+        if query not in name_lower and query not in last_name:
+            continue
+
+        # Score calculation for intuitive relevance
+        score = 0
+        if query == name_lower:
+            score += 100000
+        elif name_lower.startswith(query):
+            score += 50000
+        elif last_name.startswith(query):
+            score += 45000
+        elif any(part.startswith(query) for part in name_lower.split()):
+            score += 40000
+        else:
+            score += 10000
+
+        # Fantasy relevance: FanCalc trade value (Gibbs, Lamb, Allen, Jefferson, etc.)
+        val = fc_values.get(str(pid), 0)
+        score += val * 2
+
+        # Sleeper search rank (lower number = higher rank in fantasy)
+        sr = player.get("search_rank")
+        if sr and sr < 9999:
+            score += max(0, 10000 - sr)
+
+        # Active NFL rostered player bonus
+        if player.get("status") == "Active":
+            score += 3000
+        if player.get("team") and player.get("team") != "FA":
+            score += 2000
+
+        ranked_matches.append((score, {
+            "player_id": str(pid),
+            "name": name,
+            "team": player.get("team") or "FA",
+            "position": player.get("position") or "N/A",
+            "value": val,
+        }))
+
+    ranked_matches.sort(key=lambda item: item[0], reverse=True)
+
+    return jsonify([item[1] for item in ranked_matches[:20]])
 
 
 @api.route("/trade-evaluation", methods=["POST"])
 def trade_evaluation():
-    from trade_calculation import calculate_trade, load_season
-    from datetime import datetime
-
     data = request.get_json(silent=True)
 
     if not isinstance(data, dict):
         return jsonify({"error": "Send a JSON object."}), 400
 
-    season = data.get("season")
+    give = data.get("give") or []
+    receive = data.get("receive") or []
+    if not isinstance(give, list) or not isinstance(receive, list) or not give or not receive:
+        return jsonify({"error": "Both sides of the trade must have at least one player."}), 400
 
-    if (
-        isinstance(season, bool)
-        or not isinstance(season, int)
-        or not 1999 <= season <= datetime.now().year
-    ):
-        return jsonify({
-            "error": "Choose a valid season from 1999 through this year."
-        }), 400
+    mode = data.get("mode", "fancalc")
 
-    try:
-        players = _load_players()
+    # 1. Experimental Mode (Luke's nflverse model)
+    if mode == "experimental":
+        from trade_calculation import calculate_trade, load_season
+        from datetime import datetime
 
-        if not players:
-            raise RuntimeError(
-                "Player directory is unavailable. Try again."
+        season = data.get("season")
+        if (
+            isinstance(season, bool)
+            or not isinstance(season, int)
+            or not 1999 <= season <= datetime.now().year
+        ):
+            return jsonify({
+                "error": "Choose a valid season from 1999 through this year."
+            }), 400
+
+        try:
+            players = _load_players()
+            if not players:
+                raise RuntimeError("Player directory is unavailable. Try again.")
+
+            result = calculate_trade(
+                data,
+                players,
+                load_season(season),
             )
 
-        result = calculate_trade(
-            data,
-            players,
-            load_season(season),
-        )
+            return jsonify({
+                **result,
+                "mode": "experimental",
+                "season": season,
+                "ppr": data.get("ppr", 1),
+                "source": "NFLverse regular-season statistics",
+            })
 
-        return jsonify({
-            **result,
-            "season": season,
-            "ppr": data.get("ppr", 1),
-            "source": "NFLverse regular-season statistics",
-        })
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+        except Exception:
+            app.logger.exception("Experimental trade data loading failed")
+            return jsonify({
+                "error": (
+                    "Could not load NFLverse season stats. "
+                    "Try again or choose another season."
+                )
+            }), 503
+
+    # 2. Standard Mode: FanCalc (FantasyCalc API trade values)
+    from fancalc_connection import evaluate_fancalc_trade
+
+    try:
+        players = _load_players() or {}
+        is_dynasty = bool(data.get("isDynasty", False))
+        num_qbs = int(data.get("numQbs", 1))
+        num_teams = int(data.get("numTeams", 12))
+        ppr = float(data.get("ppr", 1.0))
+
+        result = evaluate_fancalc_trade(
+            give_ids=give,
+            receive_ids=receive,
+            is_dynasty=is_dynasty,
+            num_qbs=num_qbs,
+            num_teams=num_teams,
+            ppr=ppr,
+            sleeper_players=players,
+        )
+        return jsonify(result)
 
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
     except Exception:
-        app.logger.exception("Trade data loading failed")
-
+        app.logger.exception("FanCalc trade evaluation failed")
         return jsonify({
-            "error": (
-                "Could not load NFLverse season stats. "
-                "Try again or choose another season."
-            )
+            "error": "Could not calculate trade with FantasyCalc values. Please try again."
         }), 503
 
 # ------------------------------------------------------------------------------
