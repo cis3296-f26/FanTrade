@@ -207,13 +207,23 @@
   font-size: 14px;
 }
 
-.available-player-points,
-.trending-count {
+.available-player-points {
   display: flex;
   flex: none;
   flex-direction: column;
   align-items: flex-end;
   color: #8ed3ad;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.trending-count {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  color: #f87171;
   font-size: 17px;
   font-weight: 600;
   line-height: 1.2;
