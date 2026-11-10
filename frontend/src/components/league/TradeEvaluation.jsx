@@ -10,6 +10,7 @@ function PlayerPicker({
   selected,
   excluded,
   popularPlayers,
+  settings,
   onAdd,
   onRemove,
   disabled,
@@ -18,6 +19,11 @@ function PlayerPicker({
   const [matches, setMatches] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const isDynasty = settings?.isDynasty;
+  const numQbs = settings?.numQbs ?? 1;
+  const numTeams = settings?.numTeams ?? 12;
+  const ppr = settings?.ppr ?? 1.0;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -34,8 +40,16 @@ function PlayerPicker({
 
     const timer = setTimeout(async () => {
       try {
+        const params = new URLSearchParams({
+          q: query.trim(),
+          isDynasty: isDynasty ? "true" : "false",
+          numQbs: String(numQbs),
+          numTeams: String(numTeams),
+          ppr: String(ppr),
+        });
+
         const data = await fetchJson(
-          `/api/trade-evaluation/players?q=${encodeURIComponent(query.trim())}`,
+          `/api/trade-evaluation/players?${params.toString()}`,
           { signal: controller.signal }
         );
 
@@ -57,7 +71,7 @@ function PlayerPicker({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [query, isDynasty, numQbs, numTeams, ppr]);
 
   const available = matches.filter(
     (player) => !excluded.includes(player.player_id)
@@ -225,16 +239,66 @@ export default function TradeEvaluation() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Load top popular players on mount
+  // Load top popular players matching selected settings
   useEffect(() => {
-    fetchJson("/api/trade-evaluation/players?popular=true")
+    if (calcMode !== "fancalc") return;
+
+    const params = new URLSearchParams({
+      popular: "true",
+      isDynasty: isDynasty ? "true" : "false",
+      numQbs: String(numQbs),
+      numTeams: String(numTeams),
+      ppr: String(ppr),
+    });
+
+    fetchJson(`/api/trade-evaluation/players?${params.toString()}`)
       .then((data) => {
         if (Array.isArray(data)) {
           setPopularPlayers(data);
         }
       })
       .catch(() => {});
-  }, []);
+  }, [calcMode, isDynasty, numQbs, numTeams, ppr]);
+
+  // Keep already-selected player cards in sync with updated settings
+  useEffect(() => {
+    if (calcMode !== "fancalc") return;
+    const allIds = [...give, ...receive].map((p) => p.player_id);
+    if (allIds.length === 0) return;
+
+    const params = new URLSearchParams({
+      ids: allIds.join(","),
+      isDynasty: isDynasty ? "true" : "false",
+      numQbs: String(numQbs),
+      numTeams: String(numTeams),
+      ppr: String(ppr),
+    });
+
+    fetchJson(`/api/trade-evaluation/players?${params.toString()}`)
+      .then((updatedList) => {
+        if (!Array.isArray(updatedList) || updatedList.length === 0) return;
+        const map = new Map(updatedList.map((p) => [p.player_id, p]));
+
+        setGive((prev) =>
+          prev.map((player) => {
+            const updated = map.get(player.player_id);
+            return updated && updated.value !== undefined
+              ? { ...player, ...updated }
+              : player;
+          })
+        );
+
+        setReceive((prev) =>
+          prev.map((player) => {
+            const updated = map.get(player.player_id);
+            return updated && updated.value !== undefined
+              ? { ...player, ...updated }
+              : player;
+          })
+        );
+      })
+      .catch(() => {});
+  }, [calcMode, isDynasty, numQbs, numTeams, ppr]);
 
   const clearResult = () => {
     setResult(null);
@@ -421,6 +485,7 @@ export default function TradeEvaluation() {
             selected={give}
             excluded={excluded}
             popularPlayers={popularPlayers}
+            settings={{ isDynasty, numQbs, numTeams, ppr }}
             disabled={loading}
             onAdd={(player) => {
               setGive((prev) => [...prev, player]);
@@ -438,6 +503,7 @@ export default function TradeEvaluation() {
             selected={receive}
             excluded={excluded}
             popularPlayers={popularPlayers}
+            settings={{ isDynasty, numQbs, numTeams, ppr }}
             disabled={loading}
             onAdd={(player) => {
               setReceive((prev) => [...prev, player]);
