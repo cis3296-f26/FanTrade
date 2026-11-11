@@ -473,7 +473,7 @@ export default function TradeEvaluation() {
 
         {calcMode === "experimental" && (
           <div className="experimental-banner">
-            <strong>Experimental Mode:</strong> Calculates season-long regular season per-game averages. Currently supports WR positions only.
+            <strong>Experimental Mode:</strong> Takes into consideration player potential such as snap percentage, target share, and other advanced metrics. Efficiency is the biggest metric.
           </div>
         )}
 
@@ -621,71 +621,87 @@ export default function TradeEvaluation() {
       )}
 
       {/* Experimental Result Display */}
-      {result && result.mode === "experimental" && (
-        <div className="trade-result-section" role="status">
-          <div className="trade-verdict-banner verdict-even">
-            <span className="verdict-tag">Experimental Model</span>
-            <h2 className="verdict-title">{result.verdict}</h2>
-          </div>
+{result && result.mode === "experimental" && (
+  <div className="trade-result-section" role="status">
+    <div className="trade-verdict-banner verdict-even">
+      <span className="verdict-tag">Experimental Model</span>
+      <h2 className="verdict-title">{result.verdict}</h2>
+    </div>
 
-          <div className="trade-summary-cards">
-            <div className="summary-card">
-              <span className="summary-card-label">Give Avg</span>
-              <span className="summary-card-val">{result.give_total.toFixed(2)} pts/g</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-card-label">Receive Avg</span>
-              <span className="summary-card-val">{result.receive_total.toFixed(2)} pts/g</span>
-            </div>
-            <div className="summary-card">
-              <span className="summary-card-label">Difference</span>
-              <span className="summary-card-val">
-                {result.difference > 0 ? "+" : ""}
-                {result.difference.toFixed(2)} pts/g
-              </span>
-            </div>
-          </div>
+    <div className="trade-summary-cards">
+      <div className="summary-card">
+        <span className="summary-card-label">Give score</span>
+        <span className="summary-card-val">
+          {result.give_total.toFixed(2)}
+        </span>
+      </div>
 
-          <div className="trade-table-container">
-            <table className="trade-table">
-              <thead>
-                <tr>
-                  <th>Side</th>
-                  <th>Player</th>
-                  <th>Games</th>
-                  <th>Rec/g</th>
-                  <th>Rec Yds/g</th>
-                  <th>Rec TD/g</th>
-                  <th>Pts/game</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  ["Give", result.give],
-                  ["Receive", result.receive],
-                ].flatMap(([sideName, players]) =>
-                  players.map((player) => (
-                    <tr key={`${sideName}-${player.player_id}`}>
-                      <td>
-                        <span className={`side-badge side-${sideName.toLowerCase()}`}>
-                          {sideName}
-                        </span>
-                      </td>
-                      <td className="player-table-name">{player.name}</td>
-                      <td>{player.games}</td>
-                      <td>{player.averages?.receptions?.toFixed(2) ?? "—"}</td>
-                      <td>{player.averages?.receiving_yards?.toFixed(2) ?? "—"}</td>
-                      <td>{player.averages?.receiving_tds?.toFixed(2) ?? "—"}</td>
-                      <td className="player-table-value">{player.value?.toFixed(2)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+      <div className="summary-card">
+        <span className="summary-card-label">Receive score</span>
+        <span className="summary-card-val">
+          {result.receive_total.toFixed(2)}
+        </span>
+      </div>
+
+      <div className="summary-card">
+        <span className="summary-card-label">Difference</span>
+        <span className="summary-card-val">
+          {result.difference > 0 ? "+" : ""}
+          {result.difference.toFixed(2)}
+        </span>
+      </div>
+    </div>
+
+    <div className="trade-table-container">
+      <table className="trade-table">
+        <thead>
+          <tr>
+            <th>Side</th>
+            <th>Player</th>
+            <th>Games</th>
+            <th>Fantasy pts/g</th>
+            <th>Usage adjustment</th>
+            <th>Efficiency adjustment</th>
+            <th>Experimental score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[
+            ["Give", result.give],
+            ["Receive", result.receive],
+          ].flatMap(([sideName, players]) =>
+            players.map((player) => (
+              <tr key={`${sideName}-${player.player_id}`}>
+                <td>
+                  <span className={`side-badge side-${sideName.toLowerCase()}`}>
+                    {sideName}
+                  </span>
+                </td>
+                <td className="player-table-name">
+                  {player.name} ({player.position === "DEF" ? "D/ST" : player.position})
+                </td>
+                <td>{player.games}</td>
+                <td>{player.baseline.toFixed(2)}</td>
+                <td>
+                  {player.usage_adjustment > 0 ? "+" : ""}
+                  {player.usage_adjustment.toFixed(2)}
+                </td>
+                <td>
+                  {player.efficiency_adjustment > 0 ? "+" : ""}
+                  {player.efficiency_adjustment.toFixed(2)}
+                </td>
+                <td className="player-table-value">
+                  {player.value.toFixed(2)}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
 
           <p className="muted">
-            Experimental scoring: 0.1/receiving or rushing yard; 6/TD; 0.04/passing yard; 4/passing TD; -2/INT or fumble. Season totals ÷ recorded games. WR only.
+            Experimental scoring incorporates fantasy points per game, including PPR setting. The model then adds or subtracts points based on each player’s workload and efficiency. For wide receivers, workload includes targets per game, red-zone opportunities, and snap share. Efficiency uses yards per target and catch rate, with more weight on yards per target and smaller adjustments when a player has few targets.
           </p>
         </div>
       )}
