@@ -280,6 +280,7 @@ export default function FieldScene({
   playerB,
   simState,
   throwAnim,
+  catchEvent,
   onAnimFrame,
 }) {
   const containerRef = useRef(null);
@@ -408,15 +409,18 @@ export default function FieldScene({
 
     // ── Catch ring pool ──
     const rings = [];
-    function spawnRing(pos) {
-      const geo = new THREE.RingGeometry(0.5, 0.9, 24);
-      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.position.copy(pos);
-      mesh.position.y = 0.1;
-      scene.add(mesh);
-      rings.push({ mesh, geo, mat, elapsed: 0, duration: 0.5 });
+    function spawnRing(pos, color) {
+      for (let i = 0; i < 3; i++) {
+        const delay = i * 0.09;
+        const geo = new THREE.RingGeometry(0.3, 0.6, 32);
+        const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.copy(pos);
+        mesh.position.y = 0.1;
+        scene.add(mesh);
+        rings.push({ mesh, geo, mat, elapsed: -delay, duration: 0.55 });
+      }
     }
 
     // ── Resize ──
@@ -483,16 +487,21 @@ export default function FieldScene({
       for (let r = rings.length - 1; r >= 0; r--) {
         const ring = rings[r];
         ring.elapsed += dt;
-        const u = ring.elapsed / ring.duration;
+        if (ring.elapsed < 0) {
+          ring.mesh.visible = false;
+          continue;
+        }
+        ring.mesh.visible = true;
+        const u = Math.min(ring.elapsed / ring.duration, 1);
         if (u >= 1) {
           scene.remove(ring.mesh);
           ring.geo.dispose();
           ring.mat.dispose();
           rings.splice(r, 1);
         } else {
-          const scale = 1 + u * 2.5;
+          const scale = 1 + u * 4;
           ring.mesh.scale.set(scale, scale, scale);
-          ring.mat.opacity = 0.8 * (1 - u);
+          ring.mat.opacity = 0.7 * Math.pow(1 - u, 1.5);
         }
       }
 
@@ -676,9 +685,15 @@ export default function FieldScene({
     if (u >= 1) {
       s.ball.visible = false;
       s.ballShadow.visible = false;
-      s.spawnRing(new THREE.Vector3(landingPos.x, 0, landingPos.z));
     }
   }, [throwAnim]);
+
+  useEffect(() => {
+    const s = stateRef.current;
+    if (!s || !catchEvent) return;
+    const color = catchEvent.slot === "A" ? COLOR_A : COLOR_B;
+    s.spawnRing(new THREE.Vector3(catchEvent.x, 0, catchEvent.z), color);
+  }, [catchEvent]);
 
   return (
     <div ref={containerRef} className="field-scene-container" />

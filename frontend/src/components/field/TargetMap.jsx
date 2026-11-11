@@ -53,6 +53,8 @@ export default function TargetMap() {
   const [simSpeed, setSimSpeed] = useState(1);
   const simSpeedRef = useRef(1);
   useEffect(() => { simSpeedRef.current = simSpeed; }, [simSpeed]);
+
+  const [catchEvent, setCatchEvent] = useState(null); // { slot, x, z }
   const [throwCount, setThrowCount] = useState(24);
   const [throwCaption, setThrowCaption] = useState("");
   const [simState, setSimState] = useState(null); // { countsA, countsB, throwsA, throwsB }
@@ -238,6 +240,7 @@ export default function TargetMap() {
         sim.phaseElapsed = 0;
         sim.phase = "rest";
         setThrowAnim(null);
+        setCatchEvent({ slot: currentSlot, x: sim.landingPos.x, z: sim.landingPos.z });
 
         setSimState({
           countsA: [...countsA],
@@ -362,6 +365,7 @@ export default function TargetMap() {
             playerB={playerB}
             simState={simState}
             throwAnim={throwAnim}
+            catchEvent={catchEvent}
             onAnimFrame={(simActive && !simPaused) ? handleAnimFrame : null}
           />
 
