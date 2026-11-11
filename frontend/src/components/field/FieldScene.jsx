@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 import "./FieldScene.css";
 
@@ -286,11 +286,17 @@ export default function FieldScene({
   const containerRef = useRef(null);
   const stateRef = useRef(null);
   const onAnimFrameRef = useRef(onAnimFrame);
+  const autoRotateRef = useRef(true);
+  const [autoRotate, setAutoRotate] = useState(true);
 
   // Keep the ref current every render so the render loop always calls the latest callback
   useEffect(() => {
     onAnimFrameRef.current = onAnimFrame;
   });
+
+  useEffect(() => {
+    autoRotateRef.current = autoRotate;
+  }, [autoRotate]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -458,6 +464,12 @@ export default function FieldScene({
       rafId = requestAnimationFrame(tick);
       const dt = lastTime == null ? 0 : Math.min((ts - lastTime) / 1000, 0.05);
       lastTime = ts;
+
+      // Auto-rotate when not dragging
+      if (autoRotateRef.current && !pointerDown) {
+        azimuth += dt * 0.12;
+        updateCamera();
+      }
 
       // Animate column heights
       for (let i = 0; i < 18; i++) {
@@ -696,6 +708,16 @@ export default function FieldScene({
   }, [catchEvent]);
 
   return (
-    <div ref={containerRef} className="field-scene-container" />
+    <div style={{ position: "relative" }}>
+      <div ref={containerRef} className="field-scene-container" />
+      <button
+        className="field-scene-rotate-btn"
+        onClick={() => setAutoRotate((v) => !v)}
+        aria-label={autoRotate ? "Pause rotation" : "Resume rotation"}
+        title={autoRotate ? "Pause rotation" : "Resume rotation"}
+      >
+        {autoRotate ? "⏸" : "▶"}
+      </button>
+    </div>
   );
 }

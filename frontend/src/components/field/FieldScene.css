@@ -19,6 +19,37 @@
   height: 100%;
 }
 
+.field-scene-rotate-btn {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(245, 247, 250, 0.2);
+  background: rgba(7, 21, 21, 0.6);
+  color: rgba(245, 247, 250, 0.5);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.field-scene-rotate-btn:hover {
+  background: rgba(61, 159, 151, 0.2);
+  color: var(--teal);
+  border-color: var(--teal);
+}
+
+.field-scene-rotate-btn:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
 .field-scene-fallback {
   display: flex;
   align-items: center;
