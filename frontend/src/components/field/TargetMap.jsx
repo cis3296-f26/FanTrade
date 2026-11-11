@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import * as Slider from "@radix-ui/react-slider";
 import { fetchJson } from "../../lib/api";
 import FieldScene from "./FieldScene";
 import PlayerList from "./PlayerList";
@@ -6,7 +7,6 @@ import StatsPanel from "./StatsPanel";
 import "./TargetMap.css";
 
 // ── Simulation constants ───────────────────────────────────────────────────
-const TOTAL_THROWS = 24;
 const LANE_CENTERS_X = [-LANE_W(), 0, LANE_W()];
 
 function LANE_W() { return 53.3 / 3; }
@@ -50,10 +50,13 @@ export default function TargetMap() {
 
   const [simActive, setSimActive] = useState(false);
   const [simPaused, setSimPaused] = useState(false);
+  const [throwCount, setThrowCount] = useState(24);
   const [throwCaption, setThrowCaption] = useState("");
   const [simState, setSimState] = useState(null); // { countsA, countsB, throwsA, throwsB }
 
   const simRef = useRef(null); // mutable sim state that lives across animation frames
+  const throwCountRef = useRef(throwCount);
+  useEffect(() => { throwCountRef.current = throwCount; }, [throwCount]);
 
   // Drag state for slot drop targets
   const [dragPlayer, setDragPlayer] = useState(null);
@@ -162,10 +165,10 @@ export default function TargetMap() {
       if (sim.phaseElapsed >= restDuration) {
         // Pick next throw
         const throwIdx = sim.throwIndex;
-        if (throwIdx >= TOTAL_THROWS) {
+        if (throwIdx >= throwCountRef.current) {
           sim.phase = "done";
           setSimActive(false);
-          setThrowCaption("Done — 24 throws complete.");
+          setThrowCaption(`Done — ${throwCountRef.current} throws complete.`);
           setThrowAnim(null);
           return;
         }
@@ -198,7 +201,7 @@ export default function TargetMap() {
         sim.currentCell = cellIndex;
 
         const shortName = player.name.split(".").pop() || player.name;
-        setThrowCaption(`Throw ${throwIdx + 1} of ${TOTAL_THROWS}: to ${shortName}, ${laneLabel}, ${bandLabel} yds`);
+        setThrowCaption(`Throw ${throwIdx + 1} of ${throwCountRef.current}: to ${shortName}, ${laneLabel}, ${bandLabel} yds`);
 
         setThrowAnim({
           slot,
@@ -352,12 +355,31 @@ export default function TargetMap() {
 
           {/* Controls */}
           <div className="target-map-controls">
+            {!simActive && (
+              <label className="target-map-throw-label">
+                <span className="target-map-throw-count">Throws: {throwCount}</span>
+                <Slider.Root
+                  className="target-map-slider-root"
+                  min={6}
+                  max={100}
+                  step={2}
+                  value={[throwCount]}
+                  onValueChange={([v]) => setThrowCount(v)}
+                  aria-label="Number of throws to simulate"
+                >
+                  <Slider.Track className="target-map-slider-track">
+                    <Slider.Range className="target-map-slider-range" />
+                  </Slider.Track>
+                  <Slider.Thumb className="target-map-slider-thumb" />
+                </Slider.Root>
+              </label>
+            )}
             {!simActive ? (
               <button
                 className="btn btn-primary btn-sm"
                 onClick={startSim}
                 disabled={!playerA && !playerB}
-                aria-label="Simulate 24 throws"
+                aria-label="Simulate throws"
               >
                 ▶ Simulate
               </button>
