@@ -14,7 +14,7 @@ const FEATURES = [
   },
   {
     title: "3D Playground",
-    body: "Test our playground for play-by-play simulation if you're looking for deeper analysis. Investigate games for a better trade.",
+    body: "Explore our playground for play-by-play simulation if you're looking for deeper analysis. Investigate games for a better trade.",
   },
 ];
 
