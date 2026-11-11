@@ -355,7 +355,7 @@ export default function FieldScene({
       lastPX = e.clientX;
       lastPY = e.clientY;
       azimuth -= dx * 0.006;
-      polar = Math.max(0.25, Math.min(1.45, polar + dy * 0.006));
+      polar = Math.max(0.25, Math.min(1.45, polar - dy * 0.006));
       updateCamera();
     }
     function onPointerUp() { pointerDown = false; }

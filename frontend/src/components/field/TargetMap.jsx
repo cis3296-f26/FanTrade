@@ -405,15 +405,14 @@ export default function TargetMap() {
               </button>
             )}
             {simActive && (
-              <label className="target-map-speed-label">
-                <input
-                  type="checkbox"
-                  checked={simSpeed === 2}
-                  onChange={(e) => setSimSpeed(e.target.checked ? 2 : 1)}
-                  aria-label="2× speed"
-                />
+              <button
+                className={`btn btn-secondary btn-sm${simSpeed === 2 ? " btn-active" : ""}`}
+                onClick={() => setSimSpeed((s) => s === 2 ? 1 : 2)}
+                aria-pressed={simSpeed === 2}
+                aria-label="Toggle 2× speed"
+              >
                 2×
-              </label>
+              </button>
             )}
             {simState && (
               <button className="btn btn-secondary btn-sm" onClick={cancelSim} aria-label="Reset to full profile">
