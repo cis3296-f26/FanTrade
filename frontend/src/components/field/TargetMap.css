@@ -261,6 +261,23 @@
   text-align: left;
 }
 
+.target-map-speed-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: rgba(245, 247, 250, 0.55);
+  cursor: pointer;
+  user-select: none;
+}
+
+.target-map-speed-label input[type="checkbox"] {
+  accent-color: var(--teal);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
 .target-map-sim-note {
   font-size: 12px;
   color: rgba(245, 247, 250, 0.35);

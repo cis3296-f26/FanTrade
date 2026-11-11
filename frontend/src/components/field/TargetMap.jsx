@@ -50,6 +50,9 @@ export default function TargetMap() {
 
   const [simActive, setSimActive] = useState(false);
   const [simPaused, setSimPaused] = useState(false);
+  const [simSpeed, setSimSpeed] = useState(1);
+  const simSpeedRef = useRef(1);
+  useEffect(() => { simSpeedRef.current = simSpeed; }, [simSpeed]);
   const [throwCount, setThrowCount] = useState(24);
   const [throwCaption, setThrowCaption] = useState("");
   const [simState, setSimState] = useState(null); // { countsA, countsB, throwsA, throwsB }
@@ -156,7 +159,7 @@ export default function TargetMap() {
     const sim = simRef.current;
     if (!sim || sim.phase === "done") return;
 
-    sim.phaseElapsed += dt;
+    sim.phaseElapsed += dt * simSpeedRef.current;
 
     const p = prefersReducedMotion.current;
 
@@ -400,6 +403,17 @@ export default function TargetMap() {
               >
                 {simPaused ? "▶ Resume" : "⏸ Pause"}
               </button>
+            )}
+            {simActive && (
+              <label className="target-map-speed-label">
+                <input
+                  type="checkbox"
+                  checked={simSpeed === 2}
+                  onChange={(e) => setSimSpeed(e.target.checked ? 2 : 1)}
+                  aria-label="2× speed"
+                />
+                2×
+              </label>
             )}
             {simState && (
               <button className="btn btn-secondary btn-sm" onClick={cancelSim} aria-label="Reset to full profile">
