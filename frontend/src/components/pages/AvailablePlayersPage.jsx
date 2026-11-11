@@ -152,7 +152,7 @@ export default function AvailablePlayersPage() {
     <div className="available-players-page">
       <main className="available-players-main reveal">
         <section aria-labelledby="available-players-heading">
-          <h1 id="available-players-heading">Available players</h1>
+          <h1 id="available-players-heading">Available Players</h1>
           <p className="available-players-intro">
             Find unrostered players ranked by their expected weekly points, or see who is trending on Sleeper.
           </p>
