@@ -98,6 +98,45 @@ function loadHeadshot(id, onLoad) {
   img.src = `https://a.espncdn.com/i/headshots/nfl/players/full/${id}.png`;
 }
 
+function buildGoalpost(scene) {
+  const disposables = [];
+  const mat = new THREE.MeshLambertMaterial({ color: 0xf5c842 });
+  disposables.push(mat);
+
+  const POST_Z = -FIELD_D;
+  const UPRIGHT_H = 10;
+  const UPRIGHT_SPREAD = 9.1 / 2; // half the width between uprights (18.5ft / ~2)
+  const CROSSBAR_H = 4.5;
+  const STEM_H = CROSSBAR_H;
+  const R = 0.18;
+
+  function cyl(height, x, y, z) {
+    const geo = new THREE.CylinderGeometry(R, R, height, 8);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y + height / 2, z);
+    scene.add(mesh);
+    disposables.push(geo);
+  }
+
+  // Vertical stem from ground to crossbar
+  cyl(STEM_H, 0, 0, POST_Z);
+
+  // Crossbar (horizontal, centered)
+  const crossW = UPRIGHT_SPREAD * 2 + R * 2;
+  const crossGeo = new THREE.CylinderGeometry(R, R, crossW, 8);
+  crossGeo.rotateZ(Math.PI / 2);
+  const cross = new THREE.Mesh(crossGeo, mat);
+  cross.position.set(0, CROSSBAR_H, POST_Z);
+  scene.add(cross);
+  disposables.push(crossGeo);
+
+  // Left and right uprights
+  cyl(UPRIGHT_H, -UPRIGHT_SPREAD, CROSSBAR_H, POST_Z);
+  cyl(UPRIGHT_H,  UPRIGHT_SPREAD, CROSSBAR_H, POST_Z);
+
+  return disposables;
+}
+
 function buildField(scene) {
   const disposables = [];
 
@@ -335,6 +374,9 @@ export default function FieldScene({
     // ── Field ──
     const fieldDisposables = buildField(scene);
 
+    // ── Goalpost ──
+    const goalpostDisposables = buildGoalpost(scene);
+
     // ── Columns ──
     const colsA = buildColumns(scene, "A");
     const colsB = buildColumns(scene, "B");
@@ -495,6 +537,7 @@ export default function FieldScene({
 
       // Dispose everything
       fieldDisposables.forEach((d) => d && d.dispose && d.dispose());
+      goalpostDisposables.forEach((d) => d && d.dispose && d.dispose());
       [...colsA.disposables, ...colsB.disposables].forEach((d) => d && d.dispose && d.dispose());
       [...figA.disposables, ...figB.disposables].forEach((d) => d && d.dispose && d.dispose());
       [qbBodyGeo, qbHeadGeo, qbMat].forEach((d) => d.dispose());
