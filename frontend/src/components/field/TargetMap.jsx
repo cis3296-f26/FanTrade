@@ -119,6 +119,12 @@ export default function TargetMap() {
     cancelSim();
   }
 
+  function clearAll() {
+    setPlayerA(null);
+    setPlayerB(null);
+    cancelSim();
+  }
+
   // ── Simulation ──
   function cancelSim() {
     setSimActive(false);
@@ -421,6 +427,11 @@ export default function TargetMap() {
             {simState && (
               <button className="btn btn-secondary btn-sm" onClick={cancelSim} aria-label="Reset to full profile">
                 ✕ Reset
+              </button>
+            )}
+            {(playerA || playerB) && (
+              <button className="btn btn-secondary btn-sm" onClick={clearAll} aria-label="Clear all players">
+                Clear all
               </button>
             )}
             {throwCaption && (
