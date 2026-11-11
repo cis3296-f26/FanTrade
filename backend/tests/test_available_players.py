@@ -2,7 +2,11 @@ import unittest
 from unittest.mock import Mock, patch
 
 from app import app
-from sleeper_connection import get_available_players, get_trending_players
+from sleeper_connection import (
+    get_available_players,
+    get_sleeper_player_details,
+    get_trending_players,
+)
 
 
 class AvailablePlayersTests(unittest.TestCase):
@@ -133,6 +137,57 @@ class AvailablePlayersTests(unittest.TestCase):
             params={"lookback_hours": 24, "limit": 25},
             timeout=10,
         )
+
+    def test_player_details_include_projection_game_log_and_both_ranks(self):
+        weekly_stats = {
+            3: {"2": {"pts_ppr": 14.25}},
+            2: {"2": {"pts_ppr": 7.0}},
+            1: {"2": {"pts_ppr": 18.5}},
+        }
+        with patch("sleeper_connection._load_players", return_value=self.player_directory), \
+                patch("sleeper_connection.get_current_nfl_state", return_value={"season": "2026", "week": 3}), \
+                patch("sleeper_connection._load_season_stats", return_value={
+                    "1": {"pts_ppr": 210.0},
+                    "2": {"pts_ppr": 180.0},
+                    "3": {"pts_ppr": 165.0},
+                }), \
+                patch("sleeper_connection._load_weekly_projections", return_value={
+                    "2": {"pts_ppr": 12.34},
+                }), \
+                patch(
+                    "sleeper_connection._load_weekly_stats",
+                    side_effect=lambda season, week: weekly_stats.get(week, {}),
+                ):
+            result = get_sleeper_player_details("2")
+
+        self.assertEqual(result["expected_points"], 12.3)
+        self.assertEqual(result["fantasy_rank"], 2)
+        self.assertEqual(result["search_rank"], 5)
+        self.assertEqual(result["game_log"], [
+            {"week": 3, "points": 14.2},
+            {"week": 2, "points": 7.0},
+            {"week": 1, "points": 18.5},
+        ])
+
+    def test_player_details_reject_unknown_player(self):
+        with patch("sleeper_connection._load_players", return_value=self.player_directory):
+            result = get_sleeper_player_details("unknown")
+
+        self.assertEqual(result, {"error": "Player was not found."})
+
+    def test_endpoint_returns_sleeper_player_details(self):
+        result = {
+            "expected_points": 12.3,
+            "game_log": [],
+            "fantasy_rank": 2,
+            "search_rank": 5,
+        }
+        with patch("app.get_sleeper_player_details", return_value=result) as get_details:
+            response = self.client.get("/api/sleeper/players/2/details")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), result)
+        get_details.assert_called_once_with("2")
 
 
 if __name__ == "__main__":

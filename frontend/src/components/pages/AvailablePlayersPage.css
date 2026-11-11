@@ -198,9 +198,11 @@
 }
 
 .trending-player-dialog {
-  width: min(440px, calc(100% - 32px));
+  width: min(560px, calc(100% - 32px));
   max-width: none;
+  max-height: min(90vh, 760px);
   padding: 0;
+  overflow-y: auto;
   border: 1px solid rgba(245, 247, 250, 0.16);
   border-radius: 10px;
   background: #052a2a;
@@ -306,6 +308,124 @@
   color: #F5F7FA;
   font-size: 18px;
   font-weight: 600;
+}
+
+.trending-player-stats {
+  padding: 0 32px 32px;
+}
+
+.trending-player-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.trending-player-stat {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid rgba(245, 247, 250, 0.1);
+  border-radius: 6px;
+  background: rgba(245, 247, 250, 0.04);
+}
+
+.trending-player-stat span,
+.trending-player-stat small {
+  color: rgba(245, 247, 250, 0.55);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.trending-player-stat strong {
+  color: #F5F7FA;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.trending-player-game-log {
+  margin-top: 24px;
+}
+
+.trending-player-game-log h3 {
+  margin: 0 0 10px;
+  color: #F5F7FA;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.trending-player-game-log-list {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid rgba(245, 247, 250, 0.1);
+  border-radius: 6px;
+}
+
+.trending-player-game-log-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  background: rgba(245, 247, 250, 0.04);
+  color: rgba(245, 247, 250, 0.65);
+  font-size: 13px;
+}
+
+.trending-player-game-log-row strong {
+  color: #F5F7FA;
+  font-weight: 500;
+}
+
+.trending-player-game-log-empty,
+.trending-player-details-status {
+  margin: 0;
+  color: rgba(245, 247, 250, 0.55);
+  font-size: 13px;
+}
+
+.trending-player-details-status {
+  padding: 0 32px 24px;
+}
+
+.trending-player-details-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 32px 24px;
+  padding: 12px;
+  border-left: 3px solid #f87171;
+  border-radius: 0 4px 4px 0;
+  background: rgba(248, 113, 113, 0.08);
+  color: #fca5a5;
+}
+
+.trending-player-details-error p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.trending-player-details-error button {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 4px;
+  background: #369C6E;
+  color: #F5F7FA;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.trending-player-details-error button:hover {
+  background: #3D9F97;
+}
+
+.trending-player-details-error button:focus-visible {
+  outline: 2px solid #3D9F97;
+  outline-offset: 2px;
 }
 
 .available-player-rank {
@@ -489,8 +609,35 @@
     text-align: center;
   }
 
+  .trending-player-stats {
+    padding: 0 20px 24px;
+  }
+
+  .trending-player-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trending-player-stat {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+  }
+
+  .trending-player-stat strong {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
   .trending-player-dialog-details {
     width: 100%;
     padding: 0;
+  }
+
+  .trending-player-details-status {
+    padding: 0 20px 20px;
+  }
+
+  .trending-player-details-error {
+    margin: 0 20px 20px;
   }
 }

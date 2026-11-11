@@ -14,6 +14,11 @@ function formatPoints(value) {
     : "—";
 }
 
+function formatRank(value) {
+  const rank = Number(value);
+  return Number.isInteger(rank) && rank > 0 ? `#${rank}` : "—";
+}
+
 export default function AvailablePlayersPage() {
   const { savedLeagues } = useAuth();
   const savedSleeperLeagues = savedLeagues.filter(
@@ -30,6 +35,10 @@ export default function AvailablePlayersPage() {
   const [lookbackHours, setLookbackHours] = useState("24");
   const [trendingPlayers, setTrendingPlayers] = useState([]);
   const [selectedTrendingPlayer, setSelectedTrendingPlayer] = useState(null);
+  const [playerDetails, setPlayerDetails] = useState(null);
+  const [loadingPlayerDetails, setLoadingPlayerDetails] = useState(false);
+  const [playerDetailsError, setPlayerDetailsError] = useState("");
+  const [playerDetailsAttempt, setPlayerDetailsAttempt] = useState(0);
   const [failedPlayerImageId, setFailedPlayerImageId] = useState(null);
   const [loadingLeagues, setLoadingLeagues] = useState(false);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
@@ -52,6 +61,28 @@ export default function AvailablePlayersPage() {
       dialog.close();
     }
   }, [selectedTrendingPlayer]);
+
+  useEffect(() => {
+    if (!selectedTrendingPlayer) return undefined;
+
+    const controller = new AbortController();
+    async function loadPlayerDetails() {
+      try {
+        const data = await fetchJson(
+          `/api/sleeper/players/${encodeURIComponent(selectedTrendingPlayer.player_id)}/details`,
+          { signal: controller.signal }
+        );
+        if (!controller.signal.aborted) setPlayerDetails(data);
+      } catch (requestError) {
+        if (!controller.signal.aborted) setPlayerDetailsError(requestError.message);
+      } finally {
+        if (!controller.signal.aborted) setLoadingPlayerDetails(false);
+      }
+    }
+
+    loadPlayerDetails();
+    return () => controller.abort();
+  }, [selectedTrendingPlayer, playerDetailsAttempt]);
 
   const selectedLeague =
     leagues.find((league) => league.league_id === leagueId) ||
@@ -161,6 +192,14 @@ export default function AvailablePlayersPage() {
     loadTrendingPlayers();
     return () => controller.abort();
   }, [activeTab, trendType, lookbackHours, trendingAttempt]);
+
+  function openPlayerDetails(player) {
+    setSelectedTrendingPlayer(player);
+    setPlayerDetails(null);
+    setPlayerDetailsError("");
+    setLoadingPlayerDetails(true);
+    setPlayerDetailsAttempt((current) => current + 1);
+  }
 
   return (
     <div className="available-players-page">
@@ -430,7 +469,7 @@ export default function AvailablePlayersPage() {
                         key={player.player_id}
                         type="button"
                         aria-label={`View ${player.name} details`}
-                        onClick={() => setSelectedTrendingPlayer(player)}
+                        onClick={() => openPlayerDetails(player)}
                       >
                         <span className="available-player-rank" aria-label={`Rank ${index + 1}`}>
                           {index + 1}
@@ -508,6 +547,64 @@ export default function AvailablePlayersPage() {
                 <strong>{selectedTrendingPlayer.count}</strong>
               </p>
             </div>
+          </div>
+        )}
+        {loadingPlayerDetails && (
+          <p className="trending-player-details-status" role="status">
+            Loading player stats from Sleeper...
+          </p>
+        )}
+        {playerDetailsError && (
+          <div className="trending-player-details-error">
+            <p role="alert">{playerDetailsError}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setPlayerDetailsError("");
+                setLoadingPlayerDetails(true);
+                setPlayerDetailsAttempt((current) => current + 1);
+              }}
+            >
+              Try again
+            </button>
+          </div>
+        )}
+        {playerDetails && (
+          <div className="trending-player-stats">
+            <div className="trending-player-stat-grid">
+              <div className="trending-player-stat">
+                <span>Expected points</span>
+                <strong>{formatPoints(playerDetails.expected_points)}</strong>
+                <small>This week · PPR</small>
+              </div>
+              <div className="trending-player-stat">
+                <span>Fantasy rank</span>
+                <strong>{formatRank(playerDetails.fantasy_rank)}</strong>
+                <small>Season-to-date · PPR</small>
+              </div>
+              <div className="trending-player-stat">
+                <span>Sleeper search rank</span>
+                <strong>{formatRank(playerDetails.search_rank)}</strong>
+                <small>Search popularity</small>
+              </div>
+            </div>
+            <section className="trending-player-game-log" aria-labelledby="trending-player-game-log-title">
+              <h3 id="trending-player-game-log-title">Recent game log</h3>
+              {playerDetails.game_log.length > 0 ? (
+                <div className="trending-player-game-log-list">
+                  {playerDetails.game_log.map((game) => (
+                    <div className="trending-player-game-log-row" key={game.week}>
+                      <span>Week {game.week}</span>
+                      <strong>{formatPoints(game.points)} pts</strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="trending-player-game-log-empty">
+                  No recent game log is available from Sleeper.
+                </p>
+              )}
+            </section>
           </div>
         )}
       </dialog>

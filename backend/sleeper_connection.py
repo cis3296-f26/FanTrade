@@ -652,6 +652,77 @@ def get_available_players(league_id: str, query: str = "", position: str = None,
     return {"league_id": clean_id, "players": available[:max(1, min(limit, 200))]}
 
 
+def get_sleeper_player_details(player_id: str):
+    """Returns Sleeper projections, recent game log, and player ranks."""
+    clean_id = str(player_id).strip()
+    players = _load_players()
+    if not players:
+        return {"error": "Player directory is unavailable. Try again."}
+
+    player = players.get(clean_id)
+    if not player:
+        return {"error": "Player was not found."}
+
+    nfl_state = get_current_nfl_state()
+    season = str(nfl_state.get("season") or "")
+    current_week = nfl_state.get("week")
+    projection = {}
+    game_log = []
+    fantasy_rank = None
+
+    if season:
+        season_stats = _load_season_stats(season)
+        season_points = []
+        for season_player_id, stats in season_stats.items():
+            if not isinstance(stats, dict) or stats.get("pts_ppr") is None:
+                continue
+            try:
+                points = float(stats["pts_ppr"])
+            except (TypeError, ValueError):
+                continue
+            season_points.append((str(season_player_id), points))
+
+        player_points = next(
+            (points for season_player_id, points in season_points if season_player_id == clean_id),
+            None,
+        )
+        if player_points is not None:
+            fantasy_rank = 1 + sum(points > player_points for _, points in season_points)
+
+    if current_week:
+        projection_data = _load_weekly_projections(season, current_week)
+        projection = projection_data.get(clean_id) or {}
+
+        for week in range(int(current_week), max(0, int(current_week) - 8), -1):
+            weekly_stats = _load_weekly_stats(season, week)
+            stats = weekly_stats.get(clean_id) or {}
+            points = stats.get("pts_ppr") if isinstance(stats, dict) else None
+            if points is None:
+                continue
+            try:
+                game_log.append({"week": week, "points": round(float(points), 1)})
+            except (TypeError, ValueError):
+                continue
+            if len(game_log) == 5:
+                break
+
+    expected_points = projection.get("pts_ppr") if isinstance(projection, dict) else None
+    try:
+        expected_points = round(float(expected_points), 1) if expected_points is not None else None
+    except (TypeError, ValueError):
+        expected_points = None
+
+    return {
+        "player_id": clean_id,
+        "season": season or None,
+        "current_week": current_week,
+        "expected_points": expected_points,
+        "game_log": game_log,
+        "fantasy_rank": fantasy_rank,
+        "search_rank": player.get("search_rank"),
+    }
+
+
 def get_trending_players(trend_type: str, lookback_hours: int = 24, limit: int = 25):
     """Fetches Sleeper trending adds or drops and resolves player details."""
     clean_type = str(trend_type).lower().strip()
