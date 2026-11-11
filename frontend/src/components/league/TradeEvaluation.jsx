@@ -210,6 +210,70 @@ function PlayerPicker({
   );
 }
 
+const SCORING_METRIC_LABELS = {
+  targets: "Targets/game",
+  red_zone_opportunities: "Red-zone opportunities/game",
+  snap_share: "Offensive snap share",
+  carries: "Carries/game",
+  attempts: "Pass attempts/game",
+  fg_att: "Field goal attempts/game",
+  pat_att: "Extra point attempts/game",
+  dropbacks: "Opponent dropbacks/game",
+  receiving_yards_per_targets: "Receiving yards/target",
+  receptions_per_targets: "Catch rate",
+  rushing_yards_per_carries: "Rushing yards/carry",
+  passing_yards_per_attempts: "Passing yards/attempt",
+  fg_made_per_fg_att: "Field goal percentage",
+  sacks_per_dropbacks: "Sacks per opponent dropback",
+  takeaways_per_dropbacks: "Takeaways per opponent dropback",
+};
+
+const PERCENT_METRICS = new Set([
+  "snap_share",
+  "receptions_per_targets",
+  "fg_made_per_fg_att",
+  "sacks_per_dropbacks",
+  "takeaways_per_dropbacks",
+]);
+
+function formatScoringMetric(metric, value) {
+  return PERCENT_METRICS.has(metric)
+    ? `${(value * 100).toFixed(1)}%`
+    : value.toFixed(2);
+}
+
+function ExperimentalScoringDetails({ details }) {
+  if (!details) return null;
+
+  return (
+    <details>
+      <summary>Show scoring details</summary>
+      {[
+        ["Usage", details.usage],
+        ["Efficiency", details.efficiency],
+      ].map(([label, metrics]) => (
+        <div key={label}>
+          <strong>{label}</strong>
+          {metrics.length ? (
+            <ul>
+              {metrics.map(({ metric, actual, benchmark, adjustment }) => (
+                <li key={metric}>
+                  {SCORING_METRIC_LABELS[metric] ?? metric}
+                  {" · "}{formatScoringMetric(metric, actual)}
+                  {" · benchmark "}{formatScoringMetric(metric, benchmark)}
+                  {" · "}{adjustment >= 0 ? "+" : ""}{adjustment.toFixed(2)}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No scoring inputs available.</p>
+          )}
+        </div>
+      ))}
+    </details>
+  );
+}
+
 export default function TradeEvaluation() {
   const currentYear = new Date().getFullYear();
 
@@ -690,9 +754,10 @@ export default function TradeEvaluation() {
                   {player.efficiency_adjustment > 0 ? "+" : ""}
                   {player.efficiency_adjustment.toFixed(2)}
                 </td>
-                <td className="player-table-value">
-                  {player.value.toFixed(2)}
-                </td>
+                  <td className="player-table-name">
+                    {player.name} ({player.position === "DEF" ? "D/ST" : player.position})
+                    <ExperimentalScoringDetails details={player.scoring_details} />
+                  </td>
               </tr>
             ))
           )}
@@ -701,7 +766,7 @@ export default function TradeEvaluation() {
     </div>
 
           <p className="muted">
-            Experimental scoring incorporates fantasy points per game, including PPR setting. The model then adds or subtracts points based on each player’s workload and efficiency. For wide receivers, workload includes targets per game, red-zone opportunities, and snap share. Efficiency uses yards per target and catch rate, with more weight on yards per target and smaller adjustments when a player has few targets.
+            Experimental scoring incorporates fantasy points per game, including PPR setting. The model then adds or subtracts points based on each player’s workload and efficiency. For wide receivers, workload includes targets per game, red-zone opportunities, and snap share. Efficiency uses yards per target and catch rate, with more weight on yards per target and smaller adjustments when a player has few targets. Benchmark is 2025 league avg.
           </p>
         </div>
       )}

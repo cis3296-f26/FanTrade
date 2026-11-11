@@ -41,52 +41,52 @@ def load_season(season):
 
 # Each usage entry is (metric, reference, maximum adjustment).
 USAGE = {
-    "WR": (
-        ("targets", 6, 0.85),
-        ("red_zone_opportunities", 0.8, 0.35),
-        ("snap_share", 0.65, 0.25),
-    ),
-    "TE": (
-        ("targets", 4, 0.75),
-        ("red_zone_opportunities", 0.6, 0.35),
-        ("snap_share", 0.60, 0.20),
+    "QB": (
+        ("attempts", 31.04, 0.50),
+        ("carries", 3.53, 0.40),
+        ("red_zone_opportunities", 5.21, 0.35),
+        ("snap_share", 0.9395, 0.15),
     ),
     "RB": (
-        ("carries", 12, 0.70),
-        ("targets", 3, 0.45),
-        ("red_zone_opportunities", 2, 0.45),
-        ("snap_share", 0.50, 0.25),
+        ("carries", 12.07, 0.70),
+        ("targets", 2.93, 0.45),
+        ("red_zone_opportunities", 2.52, 0.45),
+        ("snap_share", 0.5421, 0.25),
     ),
-    "QB": (
-        ("attempts", 30, 0.50),
-        ("carries", 4, 0.40),
-        ("red_zone_opportunities", 5, 0.35),
-        ("snap_share", 0.85, 0.15),
+    "WR": (
+        ("targets", 5.71, 0.85),
+        ("red_zone_opportunities", 0.82, 0.35),
+        ("snap_share", 0.701, 0.25),
     ),
-    "K": (("fg_att", 2, 0.65), ("pat_att", 2, 0.25)),
-    "DEF": (("dropbacks", 34, 0.45),),
+    "TE": (
+        ("targets", 4.40, 0.75),
+        ("red_zone_opportunities", 0.75, 0.35),
+        ("snap_share", 0.6829, 0.20),
+    ),
+    "K": (("fg_att", 2.12, 0.65), ("pat_att", 2.28, 0.25)),
+    "DEF": (("dropbacks", 35.56, 0.45),),
 }
 
 # Each entry is (numerator, denominator, reference, maximum adjustment,
 # opportunity count used to reduce the adjustment for small samples).
 EFFICIENCY = {
+    "QB": (("passing_yards", "attempts", 7.15, 1.25, 75),),
+    "RB": (
+        ("rushing_yards", "carries", 4.24, 0.90, 50),
+        ("receiving_yards", "targets", 5.63, 0.45, 25),
+    ),
     "WR": (
-        ("receiving_yards", "targets", 8, 2.40, 25),
-        ("receptions", "targets", 0.62, 0.80, 25),
+        ("receiving_yards", "targets", 8.28, 2.40, 25),
+        ("receptions", "targets", 0.638, 0.80, 25),
     ),
     "TE": (
-        ("receiving_yards", "targets", 7, 1.75, 25),
-        ("receptions", "targets", 0.65, 0.55, 25),
+        ("receiving_yards", "targets", 7.30, 1.75, 25),
+        ("receptions", "targets", 0.7168, 0.55, 25),
     ),
-    "RB": (
-        ("rushing_yards", "carries", 4.3, 0.90, 50),
-        ("receiving_yards", "targets", 6, 0.45, 25),
-    ),
-    "QB": (("passing_yards", "attempts", 7, 1.25, 75),),
-    "K": (("fg_made", "fg_att", 0.85, 0.90, 12),),
+    "K": (("fg_made", "fg_att", 0.8462, 0.90, 12),),
     "DEF": (
-        ("sacks", "dropbacks", 0.07, 0.60, 75),
-        ("takeaways", "dropbacks", 0.04, 0.50, 75),
+        ("sacks", "dropbacks", 0.0663, 0.60, 75),
+        ("takeaways", "dropbacks", 0.0366, 0.50, 75),
     ),
 }
 
@@ -176,25 +176,41 @@ def player_value(player_id, player, records, ppr):
     averages = {field: row[field] / games for field in weights}
     baseline = sum(averages[field] * weight for field, weight in weights.items())
 
+    usage_details = []
     usage_adjustment = 0
     for field, reference, weight in USAGE[position]:
         if field in row:
             average = row[field] if field == "snap_share" else row[field] / games
             averages[field] = average
-            # Extra opportunities have diminishing returns at higher volumes.
             relative = 2 * (average / reference - 1)
-            usage_adjustment += weight * relative / (1 + abs(relative))
+            adjustment = weight * relative / (1 + abs(relative))
+            usage_adjustment += adjustment
+            usage_details.append({
+                "metric": field,
+                "actual": average,
+                "benchmark": reference,
+                "adjustment": adjustment,
+            })
 
     efficiency = {}
+    efficiency_details = []
     efficiency_adjustment = 0
     for numerator, denominator, reference, weight, prior in EFFICIENCY[position]:
         attempts = row.get(denominator, 0)
         if attempts > 0 and numerator in row:
+            metric = f"{numerator}_per_{denominator}"
             rate = row[numerator] / attempts
-            efficiency[f"{numerator}_per_{denominator}"] = rate
-            efficiency_adjustment += (
+            efficiency[metric] = rate
+            adjustment = (
                 contribution(rate, reference, weight) * attempts / (attempts + prior)
             )
+            efficiency_adjustment += adjustment
+            efficiency_details.append({
+                "metric": metric,
+                "actual": rate,
+                "benchmark": reference,
+                "adjustment": adjustment,
+            })
 
     return {
         "player_id": player_id,
@@ -207,6 +223,10 @@ def player_value(player_id, player, records, ppr):
         "value": baseline + usage_adjustment + efficiency_adjustment,
         "averages": averages,
         "efficiency": efficiency,
+        "scoring_details": {
+            "usage": usage_details,
+            "efficiency": efficiency_details,
+        },
     }
 
 
