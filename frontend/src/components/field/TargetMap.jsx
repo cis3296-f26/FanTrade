@@ -324,8 +324,17 @@ export default function TargetMap() {
                   <span className="slot-label">{slot}</span>
                   {filled ? (
                     <div className="slot-player">
-                      <span className="slot-player-name">{player.name}</span>
-                      <span className="slot-player-team">{player.team}</span>
+                      <img
+                        className="slot-avatar"
+                        src={`https://a.espncdn.com/i/headshots/nfl/players/full/${player.espn_id}.png`}
+                        alt=""
+                        aria-hidden="true"
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      />
+                      <div className="slot-player-text">
+                        <span className="slot-player-name">{player.name}</span>
+                        <span className="slot-player-team">{player.team}</span>
+                      </div>
                     </div>
                   ) : (
                     <span className="slot-empty-hint">Drop or click a player</span>

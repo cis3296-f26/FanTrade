@@ -102,6 +102,13 @@ export default function PlayerList({ players, playerA, playerB, onAssign, onDrag
                 onPointerDown={disabled ? undefined : (e) => handlePointerDown(e, player)}
                 onKeyDown={disabled ? undefined : (e) => handleKeyDown(e, player)}
               >
+                <img
+                  className="player-row-avatar"
+                  src={`https://a.espncdn.com/i/headshots/nfl/players/full/${player.espn_id}.png`}
+                  alt=""
+                  aria-hidden="true"
+                  onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                />
                 <span className="player-row-name">{player.name}</span>
                 <span className="player-row-meta">
                   <span className="player-row-team">{player.team}</span>

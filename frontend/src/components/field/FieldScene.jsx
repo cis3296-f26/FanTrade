@@ -45,22 +45,57 @@ function makeDepthLabel(text) {
   return sprite;
 }
 
-function makeNameSprite(name, color) {
+function makeNameSprite(name, color, img) {
+  const W = 320, H = 64;
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 56;
+  canvas.width = W;
+  canvas.height = H;
   const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, 256, 56);
-  ctx.font = "bold 26px Inter, system-ui, sans-serif";
-  ctx.fillStyle = `#${color.toString(16).padStart(6, "0")}`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(name, 128, 28);
+
+  function draw(image) {
+    ctx.clearRect(0, 0, W, H);
+    let textX = 160;
+    if (image) {
+      const size = 48;
+      const x = W / 2 - size / 2 - 4;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x + size / 2, H / 2, size / 2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(image, x, (H - size) / 2, size, size);
+      ctx.restore();
+      textX = W / 2 + size / 2 + 6;
+    }
+    ctx.font = "bold 26px Inter, system-ui, sans-serif";
+    ctx.fillStyle = `#${color.toString(16).padStart(6, "0")}`;
+    ctx.textAlign = image ? "left" : "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(name, textX, H / 2);
+  }
+
+  draw(img || null);
+
   const tex = new THREE.CanvasTexture(canvas);
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
   const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(7, 1.5, 1);
+  sprite.scale.set(10, 2, 1);
+
+  // Return a redraw function so callers can update once image loads
+  sprite.userData.redraw = (image) => {
+    draw(image);
+    tex.needsUpdate = true;
+  };
+
   return sprite;
+}
+
+function loadHeadshot(id, onLoad) {
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => onLoad(img);
+  img.onerror = () => onLoad(null);
+  img.src = `https://a.espncdn.com/i/headshots/nfl/players/full/${id}.png`;
 }
 
 function buildField(scene) {
@@ -481,13 +516,15 @@ export default function FieldScene({
     if (!s) return;
     if (playerA) {
       for (let i = 0; i < 18; i++) s.colsA.targetHeights[i] = Math.min(playerA.shares[i], 22);
-      // Create or update name sprite above figure A
       if (s.sprites.A) { s.scene.remove(s.sprites.A); s.sprites.A.material.map.dispose(); s.sprites.A.material.dispose(); }
       const sp = makeNameSprite(playerA.name, COLOR_A);
       sp.position.copy(s.figA.group.position);
       sp.position.y = 4.2;
       s.scene.add(sp);
       s.sprites.A = sp;
+      loadHeadshot(playerA.espn_id, (img) => {
+        if (s.sprites.A === sp) sp.userData.redraw(img);
+      });
     } else {
       s.colsA.targetHeights.fill(0);
       if (s.sprites.A) { s.scene.remove(s.sprites.A); s.sprites.A.material.map.dispose(); s.sprites.A.material.dispose(); s.sprites.A = null; }
@@ -499,13 +536,15 @@ export default function FieldScene({
     if (!s) return;
     if (playerB) {
       for (let i = 0; i < 18; i++) s.colsB.targetHeights[i] = Math.min(playerB.shares[i], 22);
-      // Create or update name sprite above figure B
       if (s.sprites.B) { s.scene.remove(s.sprites.B); s.sprites.B.material.map.dispose(); s.sprites.B.material.dispose(); }
       const sp = makeNameSprite(playerB.name, COLOR_B);
       sp.position.copy(s.figB.group.position);
       sp.position.y = 4.2;
       s.scene.add(sp);
       s.sprites.B = sp;
+      loadHeadshot(playerB.espn_id, (img) => {
+        if (s.sprites.B === sp) sp.userData.redraw(img);
+      });
     } else {
       s.colsB.targetHeights.fill(0);
       if (s.sprites.B) { s.scene.remove(s.sprites.B); s.sprites.B.material.map.dispose(); s.sprites.B.material.dispose(); s.sprites.B = null; }

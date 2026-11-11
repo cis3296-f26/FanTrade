@@ -23,22 +23,34 @@
 
 .stats-player-header {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 12px;
 }
 
-.stats-player-dot {
-  width: 10px;
-  height: 10px;
+.stats-player-avatar {
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
+  object-fit: cover;
   flex-shrink: 0;
+  background: rgba(245, 247, 250, 0.06);
+}
+
+.stats-player-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stats-player-dot {
+  display: none;
 }
 
 .stats-player-name {
   font-size: 15px;
-  font-weight: 500;
-  color: var(--text-bright);
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

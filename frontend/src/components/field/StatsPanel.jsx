@@ -41,9 +41,17 @@ function PlayerCard({ player, color }) {
   return (
     <div className="stats-player-card">
       <div className="stats-player-header">
-        <div className="stats-player-dot" style={{ background: color }} />
-        <span className="stats-player-name">{player.name}</span>
-        <span className="stats-player-team">{player.team}</span>
+        <img
+          className="stats-player-avatar"
+          src={`https://a.espncdn.com/i/headshots/nfl/players/full/${player.espn_id}.png`}
+          alt=""
+          aria-hidden="true"
+          onError={(e) => { e.currentTarget.style.display = "none"; }}
+        />
+        <div className="stats-player-title">
+          <span className="stats-player-name" style={{ color }}>{player.name}</span>
+          <span className="stats-player-team">{player.team}</span>
+        </div>
       </div>
       <div className="stats-player-rows">
         <div className="stats-stat">
