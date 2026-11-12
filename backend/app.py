@@ -642,6 +642,88 @@ def usage_field_players():
         return jsonify(json.load(f))
 
 
+# ── Game Replay ────────────────────────────────────────────────────────────────
+
+@api.route("/replay/roster-context")
+def replay_roster_context():
+    """
+    Given a league_id and a comma-separated list of nflverse player IDs
+    (from the game JSON), return which ones are on the user's roster
+    along with their Sleeper metadata and scoring settings.
+
+    Query params:
+      league_id  — Sleeper league ID
+      player_ids — comma-separated nflverse gsis_ids (e.g. "00-0033873,00-0036900")
+    """
+    league_id = request.args.get("league_id", "").strip()
+    player_ids_raw = request.args.get("player_ids", "").strip()
+
+    if not league_id:
+        return jsonify({"error": "league_id is required"}), 400
+
+    requested_ids = {p.strip() for p in player_ids_raw.split(",") if p.strip()} if player_ids_raw else set()
+
+    # Fetch league roster data
+    league = get_league_rosters(league_id)
+    if not isinstance(league, dict) or league.get("error"):
+        return jsonify({"error": league.get("error", "Could not load league")}), 502
+
+    scoring = league.get("scoring_settings", {})
+    rec_val = scoring.get("rec", 1.0)
+    scoring_type = "PPR" if rec_val == 1 else "Half-PPR" if rec_val == 0.5 else "Standard"
+
+    # Build a flat map of all rostered players: gsis_id → {name, position, team, roster_id, owner_name, is_starter}
+    all_players = _load_players()
+    roster_map = {}  # gsis_id → player info
+    for roster in league.get("rosters", []):
+        for player in roster.get("players", []):
+            pid = player.get("player_id", "")
+            # Resolve gsis_id — Sleeper player_id IS the gsis_id for real players
+            gsis = pid
+            # Also check via sleeper players dict for the gsis_id field
+            sleeper_p = all_players.get(pid, {})
+            alt_gsis = sleeper_p.get("gsis_id") or pid
+            for key in (gsis, alt_gsis):
+                if key:
+                    roster_map[key] = {
+                        "player_id": pid,
+                        "gsis_id": alt_gsis,
+                        "name": player.get("full_name") or player.get("name", pid),
+                        "position": player.get("position", ""),
+                        "team": player.get("team", ""),
+                        "roster_id": roster.get("roster_id"),
+                        "owner_name": roster.get("owner_name", ""),
+                        "team_name": roster.get("team_name", ""),
+                        "is_starter": player.get("is_starter", False),
+                        "avatar_url": f"https://sleepercdn.com/content/nfl/players/thumb/{pid}.jpg",
+                    }
+
+    # If specific player IDs requested, filter; otherwise return full map
+    if requested_ids:
+        matched = {k: v for k, v in roster_map.items() if k in requested_ids}
+    else:
+        matched = roster_map
+
+    return jsonify({
+        "league_id": league_id,
+        "league_name": league.get("name", ""),
+        "scoring_type": scoring_type,
+        "scoring_settings": {
+            "rec": rec_val,
+            "pass_td": scoring.get("pass_td", 4),
+            "pass_yd": scoring.get("pass_yd", 0.04),
+            "rush_yd": scoring.get("rush_yd", 0.1),
+            "rush_td": scoring.get("rush_td", 6),
+            "rec_yd": scoring.get("rec_yd", 0.1),
+            "rec_td": scoring.get("rec_td", 6),
+            "fumble_lost": scoring.get("fumble_lost", -2),
+            "int": scoring.get("int", -2),
+            "two_pt": scoring.get("two_pt", 2),
+        },
+        "players": matched,
+    })
+
+
 # Register the API Blueprint with Flask app
 app.register_blueprint(api)
 
