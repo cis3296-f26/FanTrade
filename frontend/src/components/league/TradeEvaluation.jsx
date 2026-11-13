@@ -324,10 +324,18 @@ export default function TradeEvaluation() {
       .catch(() => {});
   }, [calcMode, isDynasty, numQbs, numTeams, ppr]);
 
+  // Keep refs of give and receive for settings sync effect without triggering on card adds
+  const giveRef = useRef(give);
+  const receiveRef = useRef(receive);
+  useEffect(() => {
+    giveRef.current = give;
+    receiveRef.current = receive;
+  }, [give, receive]);
+
   // Keep already-selected player cards in sync with updated settings
   useEffect(() => {
     if (calcMode !== "fancalc") return;
-    const allIds = [...give, ...receive].map((p) => p.player_id);
+    const allIds = [...giveRef.current, ...receiveRef.current].map((p) => p.player_id);
     if (allIds.length === 0) return;
 
     const params = new URLSearchParams({

@@ -3,7 +3,7 @@ import "./Select.css";
 
 export default function Select({ id, value, onChange, disabled, placeholder, children }) {
   return (
-    <RadixSelect.Root value={value} onValueChange={onChange} disabled={disabled}>
+    <RadixSelect.Root value={value ? String(value) : undefined} onValueChange={onChange} disabled={disabled}>
       <RadixSelect.Trigger id={id} className="select-trigger">
         <RadixSelect.Value placeholder={placeholder ?? "Select…"} />
         <RadixSelect.Icon className="select-icon">▾</RadixSelect.Icon>
