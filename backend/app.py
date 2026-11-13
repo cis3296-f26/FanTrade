@@ -429,7 +429,7 @@ def trade_compatible_partners():
 
     try:
         # Validate request body and make sure the selected team actually belongs to this league
-        league_id, your_id = validate_compatible_partners_request(
+        league_id, your_id, position = validate_compatible_partners_request(
             request.get_json(silent=True)
         )
         league = get_league_rosters(league_id)
@@ -444,7 +444,7 @@ def trade_compatible_partners():
         if not values:
             return jsonify({"error": "Player valuation data is unavailable. Try again."}), 503
         # Scan the rest of the league rosters for mutual trade compatibility and dropoffs
-        return jsonify(find_compatible_trade_partners(league, your_id, values))
+        return jsonify(find_compatible_trade_partners(league, your_id, values, target_position=position))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception:

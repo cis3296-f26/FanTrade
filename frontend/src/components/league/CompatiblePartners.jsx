@@ -3,19 +3,24 @@ import { useState } from "react";
 export default function CompatiblePartners({
   partners = [],
   yourAnalysis,
+  targetPosition = "ANY",
   selectedPartnerId,
   loading = false,
   error = "",
   onSelectPartner,
   disabled = false,
 }) {
+  // Let the user collapse the entire section so it doesn't take up any vertical space
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  // Show top 3 matches by default so the list is compact and doesn't require excessive scrolling
   const [showAll, setShowAll] = useState(false);
 
-  if (loading) {
+  // Initial loading state when we have no partners yet
+  if (loading && (!partners || partners.length === 0)) {
     return (
       <div className="compatible-partners-container" aria-live="polite">
         <div className="partners-header">
-          <h4>Recommended Trade Partners</h4>
+          <span className="partners-title">Recommended Trade Partners</span>
           <span className="partners-badge-count">Scanning...</span>
         </div>
         <div className="partner-scanning-box">
@@ -26,12 +31,31 @@ export default function CompatiblePartners({
     );
   }
 
-  if (error) {
+  if (error || !partners || partners.length === 0) {
     return null;
   }
 
-  if (!partners || partners.length === 0) {
-    return null;
+  // When collapsed, just show a single compact clickable bar
+  if (isCollapsed) {
+    return (
+      <div className="compatible-partners-container collapsed">
+        <button
+          type="button"
+          className="partners-toggle-bar"
+          onClick={() => setIsCollapsed(false)}
+          aria-expanded={false}
+          title="Expand recommended trade partners"
+        >
+          <div className="partners-toggle-title">
+            <span className="partners-title">Recommended Trade Partners</span>
+            <span className="partners-badge-count">
+              {loading ? "Updating..." : `${partners.length} match${partners.length === 1 ? "" : "es"}`}
+            </span>
+          </div>
+          <span className="partners-toggle-action">Show Matches ▾</span>
+        </button>
+      </div>
+    );
   }
 
   const displayedPartners = showAll ? partners : partners.slice(0, 3);
@@ -40,20 +64,32 @@ export default function CompatiblePartners({
   return (
     <section className="compatible-partners-container" aria-label="Compatible Trade Partners">
       <div className="partners-header">
-        <h4>Recommended Trade Partners</h4>
-        <span className="partners-badge-count">
-          {partners.length} match{partners.length === 1 ? "" : "es"}
-        </span>
+        <div className="partners-header-left">
+          <span className="partners-title">Recommended Trade Partners</span>
+          <span className="partners-badge-count">
+            {loading ? "Updating..." : `${partners.length} match${partners.length === 1 ? "" : "es"}`}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="partners-collapse-btn"
+          onClick={() => setIsCollapsed(true)}
+          aria-expanded={true}
+          title="Minimize trade partners"
+        >
+          Hide ▴
+        </button>
       </div>
-
-      <p className="partners-subtitle">
-        Ranked by mutual roster need and positional depth compatibility.
-      </p>
 
       {/* Your Team Needs Summary */}
       {yourAnalysis && (
         <div className="your-needs-summary">
-          <span className="summary-label">Your Outlook:</span>
+          <span className="summary-label">Outlook:</span>
+          {targetPosition && targetPosition !== "ANY" && (
+            <span className="summary-pill target">
+              Target: {targetPosition}
+            </span>
+          )}
           {yourAnalysis.surplus_positions?.length > 0 && (
             <span className="summary-pill surplus">
               Surplus: {yourAnalysis.surplus_positions.join(", ")}
@@ -67,8 +103,8 @@ export default function CompatiblePartners({
         </div>
       )}
 
-      {/* Partner Cards */}
-      <div className="partner-cards-list">
+      {/* Partner Cards: Compact clickable cards to minimize scrolling */}
+      <div className={`partner-cards-list ${loading ? "is-updating" : ""}`}>
         {displayedPartners.map((partner) => {
           const isSelected = String(partner.roster_id) === String(selectedPartnerId);
           const scoreClass =
@@ -79,18 +115,31 @@ export default function CompatiblePartners({
               : "score-mid";
 
           return (
-            <article
+            <div
               key={partner.roster_id}
               className={`partner-card ${isSelected ? "partner-card-selected" : ""}`}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
+              onClick={() => !disabled && onSelectPartner(partner)}
+              onKeyDown={(e) => {
+                if ((e.key === "Enter" || e.key === " ") && !disabled) {
+                  e.preventDefault();
+                  onSelectPartner(partner);
+                }
+              }}
             >
-              <div className="partner-card-top">
+              <div className="partner-card-row1">
                 <div className="partner-team-info">
-                  <strong className="partner-name">{partner.team_name}</strong>
+                  <span className="partner-name">{partner.team_name}</span>
                   <span className="partner-owner">{partner.owner_name}</span>
                 </div>
-                <span className={`partner-score-badge ${scoreClass}`}>
-                  {partner.compatibility_score}% Match
-                </span>
+                <div className="partner-card-badges">
+                  {isSelected && <span className="partner-selected-pill">✓ Selected</span>}
+                  <span className={`partner-score-badge ${scoreClass}`}>
+                    {partner.compatibility_score}% Match
+                  </span>
+                </div>
               </div>
 
               {partner.primary_axis && (
@@ -100,37 +149,24 @@ export default function CompatiblePartners({
                 </div>
               )}
 
-              {/* Roster tags */}
-              <div className="partner-roster-tags">
-                {partner.partner_surplus_positions?.length > 0 && (
-                  <span className="tag-chip tag-surplus">
-                    They have: {partner.partner_surplus_positions.join(", ")}
-                  </span>
-                )}
-                {partner.partner_need_positions?.length > 0 && (
-                  <span className="tag-chip tag-need">
-                    They need: {partner.partner_need_positions.join(", ")}
-                  </span>
-                )}
-              </div>
-
-              {/* Direct Trade Verified Badge */}
-              {partner.has_direct_trade && partner.direct_trade_preview && (
-                <div className="partner-direct-trade-banner">
-                  <span className="direct-trade-check">✓</span>
-                  <span>Direct 2-for-2 trade available</span>
+              <div className="partner-card-footer">
+                <div className="partner-footer-tags">
+                  {partner.partner_surplus_positions?.length > 0 && (
+                    <span className="tag-chip tag-surplus">
+                      They have: {partner.partner_surplus_positions.join(", ")}
+                    </span>
+                  )}
+                  {partner.has_direct_trade && (
+                    <span className="tag-chip tag-direct-ready" title="Immediate 2-for-2 trade package ready">
+                      ⚡ 2-for-2 Ready
+                    </span>
+                  )}
                 </div>
-              )}
-
-              <button
-                type="button"
-                className={`btn-select-partner ${isSelected ? "selected" : ""}`}
-                disabled={disabled}
-                onClick={() => onSelectPartner(partner)}
-              >
-                {isSelected ? "✓ Partner Selected" : "Select Partner →"}
-              </button>
-            </article>
+                <span className="partner-click-hint">
+                  {isSelected ? "Active" : "Select →"}
+                </span>
+              </div>
+            </div>
           );
         })}
       </div>

@@ -121,7 +121,7 @@ export default function TradeSuggestion({
     setGenerating(false);
   }
 
-  // When the user picks their team, scan the other rosters in the league for compatible trade partners
+  // When the user picks their team or changes target position, scan for compatible trade partners
   useEffect(() => {
     activePartnersRequest.current?.abort();
     activePartnersRequest.current = null;
@@ -133,6 +133,7 @@ export default function TradeSuggestion({
     const controller = new AbortController();
     activePartnersRequest.current = controller;
     setLoadingPartners(true);
+    setPartnersError("");
 
     fetchJson("/api/trade-suggestions/compatible-partners", {
       method: "POST",
@@ -141,6 +142,7 @@ export default function TradeSuggestion({
       body: JSON.stringify({
         league_id: String(leagueId),
         your_roster_id: yourTeamId,
+        position,
       }),
     })
       .then((data) => {
@@ -166,13 +168,14 @@ export default function TradeSuggestion({
       });
 
     return () => controller.abort();
-  }, [leagueId, yourTeamId, loading, unavailable, teams.length]);
+  }, [leagueId, yourTeamId, position, loading, unavailable, teams.length]);
 
   // When someone clicks a recommended partner card, pre-populate the partner dropdown and target position
   function handleSelectPartner(partner) {
     clearSuggestion();
     setPartnerTeamId(String(partner.roster_id));
-    if (partner.target_position && partner.target_position !== "ANY") {
+    // If the user had "ANY" selected, adapt to the partner's recommended target position
+    if (position === "ANY" && partner.target_position && partner.target_position !== "ANY") {
       setPosition(partner.target_position);
     }
   }
@@ -284,6 +287,7 @@ export default function TradeSuggestion({
         <CompatiblePartners
           partners={partners}
           yourAnalysis={yourAnalysis}
+          targetPosition={position}
           selectedPartnerId={partnerTeamId}
           loading={loadingPartners}
           error={partnersError}

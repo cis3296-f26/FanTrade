@@ -57,7 +57,12 @@ def validate_compatible_partners_request(data):
         raise ValueError("Choose a valid team.")
     if not str(your_id).isdigit() or int(your_id) < 1:
         raise ValueError("Choose a valid team.")
-    return league_id.strip(), int(your_id)
+    position = data.get("position", "ANY")
+    if not isinstance(position, str) or position.upper() not in POSITIONS + ("ANY", "FLEX"):
+        position = "ANY"
+    else:
+        position = position.upper()
+    return league_id.strip(), int(your_id), position
 
 
 def league_trade_settings(league):
@@ -384,33 +389,29 @@ def analyze_team_positional_needs(players, slots):
         if starter_count < req:
             need = 95
         else:
-            if starter_avg < 4000:
+            if starter_avg < 3000:
                 need += 35
-            elif starter_avg < 6000:
+            elif starter_avg < 5000:
                 need += 20
-            elif starter_avg < 7500:
+            elif starter_avg < 6500:
                 need += 10
 
-            if within_starter_dropoff > 3500 and lowest_starter < 3000:
+            if within_starter_dropoff > 4000 and lowest_starter < 3000:
                 need += 25
-            elif within_starter_dropoff > 2000 and lowest_starter < 4000:
+            elif within_starter_dropoff > 2500 and lowest_starter < 4000:
                 need += 15
 
-            if quality_bench_count == 0:
-                need += 25
-            elif quality_bench_count == 1:
+            if bench_count == 0:
+                need += 20
+            elif quality_bench_count == 0 and req > 1:
+                need += 15
+            elif quality_bench_count == 0 and req == 1:
                 need += 5
 
-            if starter_to_bench_dropoff > 4000 and quality_bench_count == 0:
+            if starter_to_bench_dropoff > 4500 and quality_bench_count == 0:
                 need += 15
 
         need_score = max(0, min(100, need))
-
-        status = "balanced"
-        if surplus_score >= 45 and surplus_score > need_score + 10:
-            status = "surplus"
-        elif need_score >= 45 and need_score > surplus_score + 10:
-            status = "need"
 
         analysis[pos] = {
             "position": pos,
@@ -426,23 +427,48 @@ def analyze_team_positional_needs(players, slots):
             "starter_to_bench_dropoff": starter_to_bench_dropoff,
             "surplus_score": surplus_score,
             "need_score": need_score,
-            "status": status,
+            "status": "balanced",
         }
+
+    # Mark true surplus positions
+    for pos in POSITIONS:
+        if analysis[pos]["surplus_score"] >= 45 and analysis[pos]["surplus_score"] > analysis[pos]["need_score"] + 10:
+            analysis[pos]["status"] = "surplus"
+
+    # Only flag the top 1 or 2 most severe needs so we do not mark every position on a team as a need
+    need_candidates = [
+        pos for pos in POSITIONS
+        if analysis[pos]["status"] != "surplus"
+        and analysis[pos]["need_score"] >= 45
+        and analysis[pos]["need_score"] > analysis[pos]["surplus_score"] + 10
+    ]
+    need_candidates.sort(key=lambda p: -analysis[p]["need_score"])
+    for pos in need_candidates[:2]:
+        analysis[pos]["status"] = "need"
 
     return analysis
 
 
-def calculate_pair_compatibility(y_needs, p_needs):
+def calculate_pair_compatibility(y_needs, p_needs, requested_position="ANY"):
     """
-    Computes reciprocal trade synergy between two teams across all position pairs.
+    Computes reciprocal trade synergy between two teams across position pairs.
+    When a target position is requested (e.g. RB, WR), it prioritizes partners with
+    expendable depth at that specific position.
     Returns the optimal give/receive axis, compatibility score (0-99), tier, and insights.
     """
+    if requested_position in POSITIONS:
+        allowed_recv = [requested_position]
+    elif requested_position == "FLEX":
+        allowed_recv = [pos for pos in ("RB", "WR", "TE")]
+    else:
+        allowed_recv = list(POSITIONS)
+
     best_score = 0
     best_axis = None
 
-    # Check every possible give/receive pair to see where the two teams match up best
+    # Check candidate give/receive pairs to find where the two teams have the best mutual fit
     for give_pos in POSITIONS:
-        for recv_pos in POSITIONS:
+        for recv_pos in allowed_recv:
             if give_pos == recv_pos:
                 continue
 
@@ -452,24 +478,31 @@ def calculate_pair_compatibility(y_needs, p_needs):
             p_give_surplus = p_needs[recv_pos]["surplus_score"]
             y_recv_need = y_needs[recv_pos]["need_score"]
 
+            # If user explicitly requested this position, treat need as priority
+            effective_y_need = max(60, y_recv_need) if requested_position in POSITIONS else y_recv_need
+
             give_synergy = math.sqrt(y_give_surplus * p_recv_need)
-            recv_synergy = math.sqrt(p_give_surplus * y_recv_need)
+            recv_synergy = math.sqrt(p_give_surplus * effective_y_need)
 
             score = 0.5 * give_synergy + 0.5 * recv_synergy
 
-            # When both teams are trading from their surplus to fill a real need, give a big mutual synergy bonus
+            # When both teams are trading from their surplus to fill a real need, give a mutual synergy bonus
             if (
                 y_give_surplus >= 40
                 and p_recv_need >= 40
                 and p_give_surplus >= 40
-                and y_recv_need >= 40
+                and effective_y_need >= 40
             ):
                 score += 20
             elif (
                 (y_give_surplus >= 30 and p_recv_need >= 30)
-                or (p_give_surplus >= 30 and y_recv_need >= 30)
+                or (p_give_surplus >= 30 and effective_y_need >= 30)
             ):
                 score += 10
+
+            # Targeted bonus when partner has surplus at the user's requested position
+            if requested_position in POSITIONS and p_give_surplus >= 30:
+                score += 15
 
             if score > best_score:
                 best_score = score
@@ -505,6 +538,12 @@ def calculate_pair_compatibility(y_needs, p_needs):
                 f"Your {recv_pos} room has a steep dropoff ({dropoff_val:,} pts) with limited bench depth."
             )
         target_pos = recv_pos
+    elif requested_position in POSITIONS:
+        tier = "Low Match"
+        give_pos = None
+        target_pos = requested_position
+        summary = f"Limited {requested_position} depth available from this team"
+        reasons = [f"This team does not have expendable {requested_position} depth to trade away."]
     else:
         tier = "Low Match"
         summary = "No strong mutual roster fit found"
@@ -522,7 +561,7 @@ def calculate_pair_compatibility(y_needs, p_needs):
     }
 
 
-def find_compatible_trade_partners(league, your_id, fc_data):
+def find_compatible_trade_partners(league, your_id, fc_data, target_position="ANY"):
     """
     Scans every other team in the league against the user's team, evaluating
     positional surplus, dropoff, and mutual trade compatibility.
@@ -554,7 +593,7 @@ def find_compatible_trade_partners(league, your_id, fc_data):
         if not p_players:
             continue
         p_needs = analyze_team_positional_needs(p_players, slots)
-        comp = calculate_pair_compatibility(your_needs, p_needs)
+        comp = calculate_pair_compatibility(your_needs, p_needs, requested_position=target_position)
 
         p_surplus = [pos for pos, data in p_needs.items() if data["status"] == "surplus"]
         p_need_positions = [pos for pos, data in p_needs.items() if data["status"] == "need"]
@@ -581,7 +620,9 @@ def find_compatible_trade_partners(league, your_id, fc_data):
 
     # For the top 3 matches, verify whether our 2-for-2 trade engine can make an immediate trade package
     for p in partners[:3]:
-        target = p["target_position"] if p["target_position"] in POSITIONS else "ANY"
+        target = target_position if target_position in (POSITIONS + ("FLEX",)) else p["target_position"]
+        if target not in (POSITIONS + ("FLEX", "ANY")):
+            target = "ANY"
         try:
             res = generate_trade_suggestion(league, your_id, p["roster_id"], target, fc_data)
             if res.get("status") == "ok" and res.get("suggestion"):
@@ -603,6 +644,7 @@ def find_compatible_trade_partners(league, your_id, fc_data):
     return {
         "status": "ok",
         "your_roster_id": int(your_id),
+        "target_position": target_position,
         "your_analysis": {
             "positions": your_needs,
             "surplus_positions": your_surplus,

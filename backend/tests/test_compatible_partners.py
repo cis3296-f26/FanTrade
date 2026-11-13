@@ -14,9 +14,18 @@ from trade_suggestions import (
 
 class CompatiblePartnersUnitTests(unittest.TestCase):
     def test_validate_request_success(self):
-        lid, yid = validate_compatible_partners_request({"league_id": "12345", "your_roster_id": 1})
+        lid, yid, pos = validate_compatible_partners_request({"league_id": "12345", "your_roster_id": 1})
         self.assertEqual(lid, "12345")
         self.assertEqual(yid, 1)
+        self.assertEqual(pos, "ANY")
+
+        # Explicit position parsing
+        _, _, pos_rb = validate_compatible_partners_request({"league_id": "12345", "your_roster_id": 1, "position": "rb"})
+        self.assertEqual(pos_rb, "RB")
+
+        # Unsupported position fallback
+        _, _, pos_fallback = validate_compatible_partners_request({"league_id": "12345", "your_roster_id": 1, "position": "KICKER"})
+        self.assertEqual(pos_fallback, "ANY")
 
     def test_validate_request_rejects_invalid_inputs(self):
         for bad in (
@@ -130,6 +139,54 @@ class CompatiblePartnersUnitTests(unittest.TestCase):
         self.assertTrue(top_partner["has_direct_trade"])
         self.assertIsNotNone(top_partner["direct_trade_preview"])
 
+    def test_calculate_pair_compatibility_dynamic_position(self):
+        slots = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX"]
+        # User: Surplus WR (5 WRs), Weak RB
+        user_p = [
+            player(1, "QB", 8000),
+            player(2, "RB", 1500),
+            player(3, "WR", 9000),
+            player(4, "WR", 7500),
+            player(5, "WR", 6000),
+            player(6, "WR", 4500),
+            player(7, "TE", 4000),
+        ]
+        # Partner RB: Surplus RB (5 RBs), Weak WR
+        partner_rb_p = [
+            player(10, "QB", 7000),
+            player(11, "RB", 9000),
+            player(12, "RB", 7500),
+            player(13, "RB", 6000),
+            player(14, "RB", 4500),
+            player(15, "WR", 2000),
+            player(16, "TE", 4000),
+        ]
+        # Partner QB: Surplus QB (3 QBs), Weak WR
+        partner_qb_p = [
+            player(20, "QB", 9500),
+            player(21, "QB", 8500),
+            player(22, "QB", 6000),
+            player(23, "RB", 2000),
+            player(24, "WR", 2000),
+            player(25, "TE", 4000),
+        ]
+
+        u_needs = analyze_team_positional_needs(user_p, slots)
+        rb_needs = analyze_team_positional_needs(partner_rb_p, slots)
+        qb_needs = analyze_team_positional_needs(partner_qb_p, slots)
+
+        # When filtering by RB: partner_rb should beat partner_qb
+        comp_rb_for_rb = calculate_pair_compatibility(u_needs, rb_needs, requested_position="RB")
+        comp_qb_for_rb = calculate_pair_compatibility(u_needs, qb_needs, requested_position="RB")
+        self.assertGreater(comp_rb_for_rb["score"], comp_qb_for_rb["score"])
+        self.assertEqual(comp_rb_for_rb["target_position"], "RB")
+
+        # When filtering by QB: partner_qb should beat partner_rb
+        comp_qb_for_qb = calculate_pair_compatibility(u_needs, qb_needs, requested_position="QB")
+        comp_rb_for_qb = calculate_pair_compatibility(u_needs, rb_needs, requested_position="QB")
+        self.assertGreater(comp_qb_for_qb["score"], comp_rb_for_qb["score"])
+        self.assertEqual(comp_qb_for_qb["target_position"], "QB")
+
 
 class CompatiblePartnersApiTests(unittest.TestCase):
     def setUp(self):
@@ -148,6 +205,20 @@ class CompatiblePartnersApiTests(unittest.TestCase):
         self.assertEqual(data["your_roster_id"], 1)
         self.assertEqual(len(data["partners"]), 1)
         self.assertEqual(data["partners"][0]["roster_id"], 2)
+
+    def test_api_endpoint_with_position(self):
+        league, market = fixture()
+        with patch("app.get_league_rosters", return_value=league), \
+             patch("fancalc_connection.fetch_fancalc_values", return_value=market):
+            response = self.client.post(
+                "/api/trade-suggestions/compatible-partners",
+                json={"league_id": "123", "your_roster_id": 1, "position": "WR"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data["status"], "ok")
+        self.assertEqual(data["target_position"], "WR")
 
     def test_api_endpoint_invalid_input(self):
         response = self.client.post("/api/trade-suggestions/compatible-partners", json={"league_id": "invalid"})
