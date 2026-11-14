@@ -138,6 +138,9 @@ class CompatiblePartnersUnitTests(unittest.TestCase):
         self.assertGreater(top_partner["compatibility_score"], partners[1]["compatibility_score"])
         self.assertTrue(top_partner["has_direct_trade"])
         self.assertIsNotNone(top_partner["direct_trade_preview"])
+        self.assertEqual(top_partner["direct_trade_preview"]["trade_type"], "2-for-2")
+        self.assertEqual(top_partner["direct_trade_preview"]["give_count"], 2)
+        self.assertEqual(top_partner["direct_trade_preview"]["receive_count"], 2)
 
     def test_calculate_pair_compatibility_dynamic_position(self):
         slots = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX"]

@@ -157,8 +157,20 @@ export default function CompatiblePartners({
                     </span>
                   )}
                   {partner.has_direct_trade && (
-                    <span className="tag-chip tag-direct-ready" title="Immediate 2-for-2 trade package ready">
-                      ⚡ 2-for-2 Ready
+                    <span
+                      className="tag-chip tag-direct-ready"
+                      title={`Immediate ${
+                        partner.direct_trade_preview?.trade_type ||
+                        (partner.direct_trade_preview?.give_count && partner.direct_trade_preview?.receive_count
+                          ? `${partner.direct_trade_preview.give_count}-for-${partner.direct_trade_preview.receive_count}`
+                          : "trade")
+                      } package ready`}
+                    >
+                      {partner.direct_trade_preview?.trade_type ||
+                        (partner.direct_trade_preview?.give_count && partner.direct_trade_preview?.receive_count
+                          ? `${partner.direct_trade_preview.give_count}-for-${partner.direct_trade_preview.receive_count}`
+                          : "Trade")}{" "}
+                      Ready
                     </span>
                   )}
                 </div>

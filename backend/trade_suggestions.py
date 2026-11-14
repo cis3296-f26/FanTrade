@@ -627,10 +627,16 @@ def find_compatible_trade_partners(league, your_id, fc_data, target_position="AN
             res = generate_trade_suggestion(league, your_id, p["roster_id"], target, fc_data)
             if res.get("status") == "ok" and res.get("suggestion"):
                 eval_data = res["suggestion"]["evaluation"]
+                give_count = len(eval_data.get("give", []))
+                recv_count = len(eval_data.get("receive", []))
+                trade_type = f"{give_count}-for-{recv_count}" if give_count and recv_count else "Direct"
                 p["has_direct_trade"] = True
                 p["direct_trade_preview"] = {
                     "give": [player["name"] for player in eval_data["give"]],
                     "receive": [player["name"] for player in eval_data["receive"]],
+                    "give_count": give_count,
+                    "receive_count": recv_count,
+                    "trade_type": trade_type,
                     "advantage_percent": eval_data["diff_percentage"],
                 }
                 # Verified trade partners get an extra confidence boost
