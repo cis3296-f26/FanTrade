@@ -322,6 +322,7 @@ export default function TradeSuggestion({
       {/* Keep selections editable during generation so users can change their search. */}
       <button
         type="button"
+        className="btn btn-primary btn-md"
         disabled={!canCreate || generating}
         onClick={createSuggestion}
       >
