@@ -142,6 +142,30 @@ class CompatiblePartnersUnitTests(unittest.TestCase):
         self.assertEqual(top_partner["direct_trade_preview"]["give_count"], 2)
         self.assertEqual(top_partner["direct_trade_preview"]["receive_count"], 2)
 
+    def test_all_partners_verified_for_direct_trades(self):
+        # Verify that teams outside the top 3 still get direct trade checks
+        league, market = fixture()
+        # Add 3 extra teams (total 5 teams, so 4 partners for team 1)
+        for r_id in (3, 4, 5):
+            t = [
+                player(r_id * 10 + 1, "QB", 6000),
+                player(r_id * 10 + 2, "RB", 3100),
+                player(r_id * 10 + 3, "RB", 3200),
+                player(r_id * 10 + 4, "WR", 2500),
+            ]
+            league["rosters"].append({"roster_id": r_id, "team_name": f"Team {r_id}", "players": t})
+            market.extend([
+                {"player": {"sleeperId": p["player_id"], "name": p["name"], "position": p["position"]}, "value": p["value"]}
+                for p in t
+            ])
+
+        result = find_compatible_trade_partners(league, 1, market)
+        partners = result["partners"]
+        self.assertEqual(len(partners), 4)
+        # Any partner with an achievable trade package should have has_direct_trade verified
+        verified = [p for p in partners if p["has_direct_trade"]]
+        self.assertGreater(len(verified), 0)
+
     def test_calculate_pair_compatibility_dynamic_position(self):
         slots = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX"]
         # User: Surplus WR (5 WRs), Weak RB

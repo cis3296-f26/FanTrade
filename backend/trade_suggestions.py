@@ -618,31 +618,47 @@ def find_compatible_trade_partners(league, your_id, fc_data, target_position="AN
     # Sort so the highest compatibility trade partners come first
     partners.sort(key=lambda p: -p["compatibility_score"])
 
-    # For the top 3 matches, verify whether our 2-for-2 trade engine can make an immediate trade package
-    for p in partners[:3]:
+    # Verify whether our trade engine can make an immediate trade package for each partner
+    for p in partners:
         target = target_position if target_position in (POSITIONS + ("FLEX",)) else p["target_position"]
         if target not in (POSITIONS + ("FLEX", "ANY")):
             target = "ANY"
+        res = None
         try:
             res = generate_trade_suggestion(league, your_id, p["roster_id"], target, fc_data)
-            if res.get("status") == "ok" and res.get("suggestion"):
-                eval_data = res["suggestion"]["evaluation"]
-                give_count = len(eval_data.get("give", []))
-                recv_count = len(eval_data.get("receive", []))
-                trade_type = f"{give_count}-for-{recv_count}" if give_count and recv_count else "Direct"
-                p["has_direct_trade"] = True
-                p["direct_trade_preview"] = {
-                    "give": [player["name"] for player in eval_data["give"]],
-                    "receive": [player["name"] for player in eval_data["receive"]],
-                    "give_count": give_count,
-                    "receive_count": recv_count,
-                    "trade_type": trade_type,
-                    "advantage_percent": eval_data["diff_percentage"],
-                }
-                # Verified trade partners get an extra confidence boost
-                p["compatibility_score"] = min(99, p["compatibility_score"] + 5)
         except Exception:
             pass
+
+        # If a specific requested position didn't produce a trade, check if an ANY-position trade exists
+        if (not res or res.get("status") != "ok" or not res.get("suggestion")) and target != "ANY":
+            try:
+                res = generate_trade_suggestion(league, your_id, p["roster_id"], "ANY", fc_data)
+            except Exception:
+                pass
+
+        if res and res.get("status") == "ok" and res.get("suggestion"):
+            eval_data = res["suggestion"]["evaluation"]
+            give_count = len(eval_data.get("give", []))
+            recv_count = len(eval_data.get("receive", []))
+            trade_type = f"{give_count}-for-{recv_count}" if give_count and recv_count else "Direct"
+            p["has_direct_trade"] = True
+            p["direct_trade_preview"] = {
+                "give": [player["name"] for player in eval_data["give"]],
+                "receive": [player["name"] for player in eval_data["receive"]],
+                "give_count": give_count,
+                "receive_count": recv_count,
+                "trade_type": trade_type,
+                "advantage_percent": eval_data["diff_percentage"],
+            }
+            # Verified trade partners get an extra confidence boost
+            p["compatibility_score"] = min(99, max(p["compatibility_score"] + 10, 45 if p["compatibility_score"] < 25 else p["compatibility_score"] + 10))
+            if p["tier"] == "Low Match":
+                p["tier"] = "Moderate Match"
+                if "Limited" in p["primary_axis"] or "No strong" in p["primary_axis"]:
+                    give_positions = "/".join(sorted(set(pl.get("position", "") for pl in eval_data.get("give", []))))
+                    recv_positions = "/".join(sorted(set(pl.get("position", "") for pl in eval_data.get("receive", []))))
+                    if give_positions and recv_positions:
+                        p["primary_axis"] = f"Trade your {give_positions} for their {recv_positions}"
 
     # Final re-sort in case a verified trade bumped up a partner
     partners.sort(key=lambda p: -p["compatibility_score"])
