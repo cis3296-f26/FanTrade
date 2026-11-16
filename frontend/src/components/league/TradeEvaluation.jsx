@@ -609,9 +609,7 @@ export default function TradeEvaluation() {
       {result && result.mode === "fancalc" && (
         <div className="trade-result-section" role="status">
           <div className={`trade-verdict-banner verdict-${(result.favors || "even").toLowerCase()}`}>
-            <span className="verdict-tag">
-              {result.favors === "Even" ? "Fair Deal" : result.favors === "Receive" ? "Winning Trade" : "Losing Trade"}
-            </span>
+            <span className="verdict-tag">Consensus Verdict</span>
             <h2 className="verdict-title">{result.verdict}</h2>
           </div>
 
@@ -700,12 +698,11 @@ export default function TradeEvaluation() {
         const isWin = result.difference > 0;
         const isLoss = result.difference < 0;
         const verdictBannerClass = isWin ? "verdict-receive" : isLoss ? "verdict-give" : "verdict-even";
-        const verdictTag = isWin ? "Winning Trade" : isLoss ? "Losing Trade" : "Equal Value";
 
         return (
           <div className="trade-result-section" role="status">
             <div className={`trade-verdict-banner ${verdictBannerClass}`}>
-              <span className="verdict-tag">{verdictTag} (Experimental)</span>
+              <span className="verdict-tag">Experimental Model</span>
               <h2 className="verdict-title">{result.verdict}</h2>
             </div>
 
