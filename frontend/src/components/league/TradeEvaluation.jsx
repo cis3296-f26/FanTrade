@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as ToggleGroup from "@radix-ui/react-toggle-group";
+import { Link } from "react-router-dom";
 import { fetchJson } from "../../lib/api";
+import { useAuth } from "../../lib/AuthContext";
 import Select, { SelectItem } from "../ui/Select";
 import "./TradeEvaluation.css";
 
@@ -277,9 +279,21 @@ function ExperimentalScoringDetails({ details }) {
 
 export default function TradeEvaluation() {
   const currentYear = new Date().getFullYear();
+  const { savedLeagues } = useAuth();
+  const savedSleeperLeagues = savedLeagues.filter(
+    (league) => league.platform === "sleeper"
+  );
 
   // Mode: "fancalc" (standard consensus) or "experimental" (Luke's nflverse model)
   const [calcMode, setCalcMode] = useState("fancalc");
+
+  // Optional league roster analysis
+  const [selectedLeagueId, setSelectedLeagueId] = useState("");
+  const [league, setLeague] = useState(null);
+  const [selectedRosterId, setSelectedRosterId] = useState("");
+  const [leagueLoading, setLeagueLoading] = useState(false);
+  const [leagueError, setLeagueError] = useState("");
+  const [leagueAttempt, setLeagueAttempt] = useState(0);
 
   // Popular players quick options
   const [popularPlayers, setPopularPlayers] = useState([]);
@@ -303,6 +317,42 @@ export default function TradeEvaluation() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selectedLeagueId) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+
+    async function loadLeague() {
+      try {
+        const data = await fetchJson(
+          `/api/sleeper/rosters/${encodeURIComponent(selectedLeagueId)}`,
+          { signal: controller.signal }
+        );
+
+        if (!Array.isArray(data.rosters)) {
+          throw new Error("The server did not return valid roster data.");
+        }
+
+        if (!controller.signal.aborted) {
+          setLeague(data);
+        }
+      } catch (requestError) {
+        if (!controller.signal.aborted) {
+          setLeagueError(requestError.message);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLeagueLoading(false);
+        }
+      }
+    }
+
+    loadLeague();
+    return () => controller.abort();
+  }, [selectedLeagueId, leagueAttempt]);
 
   // Load top popular players matching selected settings
   useEffect(() => {
@@ -378,7 +428,55 @@ export default function TradeEvaluation() {
     setError("");
   };
 
+  function handleLeagueChange(leagueId) {
+    setSelectedLeagueId(leagueId);
+    setSelectedRosterId("");
+    setLeague(null);
+    setLeagueLoading(Boolean(leagueId));
+    setGive([]);
+    setReceive([]);
+    setLeagueError("");
+    clearResult();
+  }
+
+  function handleRosterChange(rosterId) {
+    setSelectedRosterId(rosterId);
+    const yourRoster = league?.rosters.find(
+      (roster) => String(roster.roster_id) === rosterId
+    );
+
+    if (!yourRoster) {
+      setGive([]);
+      setReceive([]);
+      clearResult();
+      return;
+    }
+
+    const toTradePlayer = (player) => ({
+      player_id: String(player.player_id),
+      name: player.full_name || player.name,
+      position: player.position,
+      team: player.team,
+    });
+
+    setGive((yourRoster.players ?? []).map(toTradePlayer));
+    setReceive(
+      league.rosters
+        .filter((roster) => String(roster.roster_id) !== rosterId)
+        .flatMap((roster) => (roster.players ?? []).map(toTradePlayer))
+    );
+    clearResult();
+  }
+
+  function retryLeagueLoad() {
+    setLeagueError("");
+    setLeagueLoading(true);
+    setLeagueAttempt((attempt) => attempt + 1);
+  }
+
   const excluded = [...give, ...receive].map((player) => player.player_id);
+  const experimentalPlayerLimitExceeded =
+    calcMode === "experimental" && (give.length > 10 || receive.length > 10);
 
   async function evaluate(event) {
     event.preventDefault();
@@ -427,6 +525,83 @@ export default function TradeEvaluation() {
       <p className="trade-description">
         Evaluate trades with real-market consensus player values, or test experimental stats-based models.
       </p>
+
+      <section className="trade-league-analysis" aria-labelledby="trade-league-heading">
+        <h2 id="trade-league-heading">Analyze a league <span>Optional</span></h2>
+        {savedSleeperLeagues.length > 0 ? (
+          <>
+            <div className="trade-league-controls">
+              <div className="field">
+                <label htmlFor="trade-league-select">Saved Sleeper league</label>
+                <Select
+                  id="trade-league-select"
+                  value={selectedLeagueId}
+                  placeholder="Choose a league"
+                  disabled={leagueLoading || loading}
+                  onChange={handleLeagueChange}
+                >
+                  {savedSleeperLeagues.map((savedLeague) => (
+                    <SelectItem
+                      key={savedLeague.league_id}
+                      value={savedLeague.league_id}
+                    >
+                      {savedLeague.league_name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </div>
+
+              {league?.rosters.length > 0 && (
+                <div className="field">
+                  <label htmlFor="trade-roster-select">Your roster</label>
+                  <Select
+                    id="trade-roster-select"
+                    value={selectedRosterId}
+                    placeholder="Choose your team"
+                    disabled={loading}
+                    onChange={handleRosterChange}
+                  >
+                    {league.rosters.map((roster) => (
+                      <SelectItem
+                        key={roster.roster_id}
+                        value={roster.roster_id}
+                      >
+                        {roster.team_name} · {roster.owner_name}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            {leagueLoading && <p className="muted" role="status">Loading league rosters…</p>}
+            {leagueError && (
+              <div>
+                <p className="error-message" role="alert">{leagueError}</p>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-md"
+                  onClick={retryLeagueLoad}
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+            {league && league.rosters.length === 0 && (
+              <p className="muted">This league has no rosters to analyze.</p>
+            )}
+            {selectedRosterId && (
+              <p className="muted" role="status">
+                Your roster is on I Give; every other roster is on I Receive.
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="muted">
+            Save a Sleeper league from <Link to="/league">League View</Link> to load rosters here.
+          </p>
+        )}
+      </section>
 
       {/* Mode Toggle */}
       <ToggleGroup.Root
@@ -591,12 +766,23 @@ export default function TradeEvaluation() {
           />
         </div>
 
+        {experimentalPlayerLimitExceeded && (
+          <p className="muted" role="alert">
+            Experimental mode supports up to 10 players per side. Remove players from either side to evaluate this league.
+          </p>
+        )}
+
         {/* Evaluate Action */}
         <div className="trade-action-row">
           <button
             type="submit"
             className="btn btn-primary btn-lg trade-submit-button"
-            disabled={loading || give.length === 0 || receive.length === 0}
+            disabled={
+              loading ||
+              give.length === 0 ||
+              receive.length === 0 ||
+              experimentalPlayerLimitExceeded
+            }
           >
             {loading ? "Evaluating Trade…" : "Evaluate Trade"}
           </button>
