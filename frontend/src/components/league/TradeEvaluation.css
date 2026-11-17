@@ -367,6 +367,14 @@
   margin: 10px 0 14px;
 }
 
+.trade-league-player-section {
+  margin: 10px 0 14px;
+}
+
+.trade-league-player-list {
+  margin-bottom: 10px;
+}
+
 .quick-label {
   font-size: 11px;
   text-transform: uppercase;

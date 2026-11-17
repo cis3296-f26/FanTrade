@@ -12,6 +12,7 @@ function PlayerPicker({
   selected,
   excluded,
   popularPlayers,
+  leaguePlayers,
   settings,
   calcMode,
   onAdd,
@@ -76,8 +77,19 @@ function PlayerPicker({
     };
   }, [query, isDynasty, numQbs, numTeams, ppr]);
 
+  const searchText = query.trim().toLowerCase();
+  const leaguePlayerIds = new Set(leaguePlayers.map((player) => player.player_id));
   const available = matches.filter(
-    (player) => !excluded.includes(player.player_id)
+    (player) =>
+      !excluded.includes(player.player_id) &&
+      !leaguePlayerIds.has(player.player_id)
+  );
+  const availableLeaguePlayers = leaguePlayers.filter(
+    (player) =>
+      !excluded.includes(player.player_id) &&
+      (!searchText ||
+        player.name.toLowerCase().includes(searchText) ||
+        player.roster_name.toLowerCase().includes(searchText))
   );
 
   return (
@@ -107,33 +119,78 @@ function PlayerPicker({
         <div className="trade-quick-section">
           <span className="quick-label">Top Targets:</span>
           <div className="quick-chip-list">
-            {popularPlayers.slice(0, 6).map((player) => {
-              const isExcluded = excluded.includes(player.player_id);
-              return (
-                <button
-                  key={player.player_id}
-                  type="button"
-                  className="btn-quick-chip"
-                  disabled={disabled || isExcluded || selected.length >= 10}
-                  onClick={() => onAdd(player)}
-                  title={isExcluded ? "Already in trade" : `Add ${player.name}`}
-                >
-                  <span className="chip-name">{player.name}</span>
-                  <span className="chip-pos">{player.position}</span>
-                  {calcMode !== "experimental" && player.value > 0 && (
-                    <span className="chip-val">{player.value.toLocaleString()}</span>
-                  )}
-                </button>
-              );
-            })}
+            {popularPlayers
+              .filter((player) => !leaguePlayerIds.has(player.player_id))
+              .slice(0, 6)
+              .map((player) => {
+                const isExcluded = excluded.includes(player.player_id);
+                return (
+                  <button
+                    key={player.player_id}
+                    type="button"
+                    className="btn-quick-chip"
+                    disabled={disabled || isExcluded || selected.length >= 10}
+                    onClick={() => onAdd(player)}
+                    title={isExcluded ? "Already in trade" : `Add ${player.name}`}
+                  >
+                    <span className="chip-name">{player.name}</span>
+                    <span className="chip-pos">{player.position}</span>
+                    {calcMode !== "experimental" && player.value > 0 && (
+                      <span className="chip-val">{player.value.toLocaleString()}</span>
+                    )}
+                  </button>
+                );
+              })}
           </div>
+        </div>
+      )}
+
+      {leaguePlayers.length > 0 && (
+        <div className="trade-league-player-section">
+          <span className="quick-label">
+            {side === "give"
+              ? "Players from your selected roster:"
+              : "Players from other league rosters:"}
+          </span>
+          {availableLeaguePlayers.length > 0 ? (
+            <ul className="trade-match-list trade-league-player-list">
+              {availableLeaguePlayers.map((player) => (
+                <li key={player.player_id} className="trade-player-row">
+                  <div className="player-left">
+                    <span className="pos-badge">{player.position || "FLEX"}</span>
+                    <div className="player-details">
+                      <span className="player-name">{player.name}</span>
+                      <span className="player-meta">
+                        {player.team || "FA"} · {player.roster_name}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={disabled || selected.length >= 10}
+                    onClick={() => {
+                      onAdd(player);
+                      setQuery("");
+                      setMatches([]);
+                    }}
+                  >
+                    + Add
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : !searchText ? (
+            <p className="muted">All players from this group are already in the calculation.</p>
+          ) : null}
         </div>
       )}
 
       {loading && <p className="muted" role="status">Searching players…</p>}
       {error && <p className="error-message" role="alert">{error}</p>}
 
-      {!loading && query.trim().length >= 2 && !error && available.length === 0 && (
+      {!loading && query.trim().length >= 2 && !error &&
+        available.length === 0 && availableLeaguePlayers.length === 0 && (
         <p className="muted">No matching players found.</p>
       )}
 
@@ -441,30 +498,8 @@ export default function TradeEvaluation() {
 
   function handleRosterChange(rosterId) {
     setSelectedRosterId(rosterId);
-    const yourRoster = league?.rosters.find(
-      (roster) => String(roster.roster_id) === rosterId
-    );
-
-    if (!yourRoster) {
-      setGive([]);
-      setReceive([]);
-      clearResult();
-      return;
-    }
-
-    const toTradePlayer = (player) => ({
-      player_id: String(player.player_id),
-      name: player.full_name || player.name,
-      position: player.position,
-      team: player.team,
-    });
-
-    setGive((yourRoster.players ?? []).map(toTradePlayer));
-    setReceive(
-      league.rosters
-        .filter((roster) => String(roster.roster_id) !== rosterId)
-        .flatMap((roster) => (roster.players ?? []).map(toTradePlayer))
-    );
+    setGive([]);
+    setReceive([]);
     clearResult();
   }
 
@@ -475,6 +510,28 @@ export default function TradeEvaluation() {
   }
 
   const excluded = [...give, ...receive].map((player) => player.player_id);
+  const selectedRoster = league?.rosters.find(
+    (roster) => String(roster.roster_id) === selectedRosterId
+  );
+  const toTradePlayer = (player, roster) => ({
+    player_id: String(player.player_id),
+    name: player.full_name || player.name,
+    position: player.position,
+    team: player.team,
+    roster_name: roster.team_name || `Team ${roster.roster_id}`,
+  });
+  const leagueGivePlayers = selectedRoster
+    ? (selectedRoster.players ?? []).map((player) =>
+        toTradePlayer(player, selectedRoster)
+      )
+    : [];
+  const leagueReceivePlayers = selectedRoster
+    ? league.rosters
+        .filter((roster) => String(roster.roster_id) !== selectedRosterId)
+        .flatMap((roster) =>
+          (roster.players ?? []).map((player) => toTradePlayer(player, roster))
+        )
+    : [];
   const experimentalPlayerLimitExceeded =
     calcMode === "experimental" && (give.length > 10 || receive.length > 10);
 
@@ -592,13 +649,13 @@ export default function TradeEvaluation() {
             )}
             {selectedRosterId && (
               <p className="muted" role="status">
-                Your roster is on I Give; every other roster is on I Receive.
+                Choose players from the roster options below. Players are added only when you select + Add.
               </p>
             )}
           </>
         ) : (
           <p className="muted">
-            Save a Sleeper league from <Link to="/league">League View</Link> to load rosters here.
+            Save a Sleeper league from <Link to="/search">League View</Link> to load rosters here.
           </p>
         )}
       </section>
@@ -733,6 +790,7 @@ export default function TradeEvaluation() {
             selected={give}
             excluded={excluded}
             popularPlayers={popularPlayers}
+            leaguePlayers={leagueGivePlayers}
             settings={{ isDynasty, numQbs, numTeams, ppr }}
             calcMode={calcMode}
             disabled={loading}
@@ -752,6 +810,7 @@ export default function TradeEvaluation() {
             selected={receive}
             excluded={excluded}
             popularPlayers={popularPlayers}
+            leaguePlayers={leagueReceivePlayers}
             settings={{ isDynasty, numQbs, numTeams, ppr }}
             calcMode={calcMode}
             disabled={loading}
