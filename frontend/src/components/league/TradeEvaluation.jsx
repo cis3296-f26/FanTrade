@@ -13,6 +13,7 @@ function PlayerPicker({
   excluded,
   popularPlayers,
   leaguePlayers,
+  leagueAnalysisActive,
   settings,
   calcMode,
   onAdd,
@@ -91,6 +92,47 @@ function PlayerPicker({
         player.name.toLowerCase().includes(searchText) ||
         player.roster_name.toLowerCase().includes(searchText))
   );
+  const leaguePlayerGroups = Array.from(
+    availableLeaguePlayers.reduce((groups, player) => {
+      const group = groups.get(player.roster_id) ?? {
+        roster_id: player.roster_id,
+        roster_name: player.roster_name,
+        owner_name: player.owner_name,
+        players: [],
+      };
+      group.players.push(player);
+      groups.set(player.roster_id, group);
+      return groups;
+    }, new Map()).values()
+  );
+
+  function renderLeaguePlayer(player) {
+    return (
+      <li key={player.player_id} className="trade-player-row">
+        <div className="player-left">
+          <span className="pos-badge">{player.position || "FLEX"}</span>
+          <div className="player-details">
+            <span className="player-name">{player.name}</span>
+            <span className="player-meta">
+              {player.team || "FA"} · {player.roster_name}
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          disabled={disabled || selected.length >= 10}
+          onClick={() => {
+            onAdd(player);
+            setQuery("");
+            setMatches([]);
+          }}
+        >
+          + Add
+        </button>
+      </li>
+    );
+  }
 
   return (
     <div className="trade-side-panel">
@@ -115,7 +157,10 @@ function PlayerPicker({
       </div>
 
       {/* Quick-add popular trade targets */}
-      {popularPlayers && popularPlayers.length > 0 && query.trim().length < 2 && (
+      {!leagueAnalysisActive &&
+        popularPlayers &&
+        popularPlayers.length > 0 &&
+        query.trim().length < 2 && (
         <div className="trade-quick-section">
           <span className="quick-label">Top Targets:</span>
           <div className="quick-chip-list">
@@ -152,33 +197,22 @@ function PlayerPicker({
               ? "Players from your selected roster:"
               : "Players from other league rosters:"}
           </span>
-          {availableLeaguePlayers.length > 0 ? (
-            <ul className="trade-match-list trade-league-player-list">
-              {availableLeaguePlayers.map((player) => (
-                <li key={player.player_id} className="trade-player-row">
-                  <div className="player-left">
-                    <span className="pos-badge">{player.position || "FLEX"}</span>
-                    <div className="player-details">
-                      <span className="player-name">{player.name}</span>
-                      <span className="player-meta">
-                        {player.team || "FA"} · {player.roster_name}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={disabled || selected.length >= 10}
-                    onClick={() => {
-                      onAdd(player);
-                      setQuery("");
-                      setMatches([]);
-                    }}
-                  >
-                    + Add
-                  </button>
-                </li>
+          {availableLeaguePlayers.length > 0 && side === "receive" ? (
+            <div className="trade-match-list trade-league-player-list trade-league-player-groups">
+              {leaguePlayerGroups.map((group) => (
+                <section key={group.roster_id} className="trade-league-roster-group">
+                  <h4 className="trade-league-roster-heading">
+                    {group.roster_name} · {group.owner_name}
+                  </h4>
+                  <ul className="trade-league-group-list">
+                    {group.players.map(renderLeaguePlayer)}
+                  </ul>
+                </section>
               ))}
+            </div>
+          ) : availableLeaguePlayers.length > 0 ? (
+            <ul className="trade-match-list trade-league-player-list">
+              {availableLeaguePlayers.map(renderLeaguePlayer)}
             </ul>
           ) : !searchText ? (
             <p className="muted">All players from this group are already in the calculation.</p>
@@ -518,7 +552,9 @@ export default function TradeEvaluation() {
     name: player.full_name || player.name,
     position: player.position,
     team: player.team,
+    roster_id: String(roster.roster_id),
     roster_name: roster.team_name || `Team ${roster.roster_id}`,
+    owner_name: roster.owner_name || "Unknown owner",
   });
   const leagueGivePlayers = selectedRoster
     ? (selectedRoster.players ?? []).map((player) =>
@@ -656,6 +692,7 @@ export default function TradeEvaluation() {
         ) : (
           <p className="muted">
             Save a Sleeper league from <Link to="/search">League View</Link> to load rosters here.
+            {" "}You need to sign in, then save a league.
           </p>
         )}
       </section>
@@ -791,6 +828,7 @@ export default function TradeEvaluation() {
             excluded={excluded}
             popularPlayers={popularPlayers}
             leaguePlayers={leagueGivePlayers}
+            leagueAnalysisActive={Boolean(selectedLeagueId)}
             settings={{ isDynasty, numQbs, numTeams, ppr }}
             calcMode={calcMode}
             disabled={loading}
@@ -811,6 +849,7 @@ export default function TradeEvaluation() {
             excluded={excluded}
             popularPlayers={popularPlayers}
             leaguePlayers={leagueReceivePlayers}
+            leagueAnalysisActive={Boolean(selectedLeagueId)}
             settings={{ isDynasty, numQbs, numTeams, ppr }}
             calcMode={calcMode}
             disabled={loading}

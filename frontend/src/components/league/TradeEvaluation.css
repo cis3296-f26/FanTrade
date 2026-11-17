@@ -375,6 +375,32 @@
   margin-bottom: 10px;
 }
 
+.trade-league-player-groups {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.trade-league-roster-group + .trade-league-roster-group {
+  border-top: 1px solid rgba(245, 247, 250, 0.12);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.trade-league-roster-heading {
+  margin: 0 0 4px;
+  padding: 4px 8px;
+  color: rgba(245, 247, 250, 0.7);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.trade-league-group-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 .quick-label {
   font-size: 11px;
   text-transform: uppercase;
