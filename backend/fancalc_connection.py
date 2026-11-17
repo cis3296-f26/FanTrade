@@ -152,6 +152,11 @@ def build_player_value_lookup(
                 "overall_rank": matched_item.get("overallRank"),
                 "position_rank": matched_item.get("positionRank"),
                 "trend_30_day": matched_item.get("trend30Day", 0),
+                "avatar_url": sleeper_info.get("avatar_url") or (
+                    f"https://sleepercdn.com/content/nfl/players/thumb/{pid_str}.jpg"
+                    if pid_str.isdigit()
+                    else "https://sleepercdn.com/images/v2/icons/player_default.webp"
+                ),
                 "unranked": False,
             }
 
@@ -165,6 +170,11 @@ def build_player_value_lookup(
             "overall_rank": None,
             "position_rank": None,
             "trend_30_day": 0,
+            "avatar_url": sleeper_info.get("avatar_url") or (
+                f"https://sleepercdn.com/content/nfl/players/thumb/{pid_str}.jpg"
+                if pid_str.isdigit()
+                else "https://sleepercdn.com/images/v2/icons/player_default.webp"
+            ),
             "unranked": True,
         }
 

@@ -418,6 +418,40 @@ def trade_suggestions():
         return jsonify({"error": "Could not generate a suggestion with the available data. Try again."}), 503
 
 
+@api.route("/trade-suggestions/compatible-partners", methods=["POST"])
+def trade_compatible_partners():
+    from fancalc_connection import fetch_fancalc_values
+    from trade_suggestions import (
+        find_compatible_trade_partners,
+        league_trade_settings,
+        validate_compatible_partners_request,
+    )
+
+    try:
+        # Validate request body and make sure the selected team actually belongs to this league
+        league_id, your_id, position = validate_compatible_partners_request(
+            request.get_json(silent=True)
+        )
+        league = get_league_rosters(league_id)
+        if not isinstance(league, dict) or league.get("error"):
+            return jsonify({"error": "Could not load this league. Try again."}), 503
+        roster_ids = {str(r["roster_id"]) for r in league.get("rosters", [])}
+        if str(your_id) not in roster_ids:
+            raise ValueError("The selected team must belong to this league.")
+        _, settings = league_trade_settings(league)
+        # Pull FantasyCalc valuations using this league's rules (PPR, 1QB/2QB, Dynasty)
+        values = fetch_fancalc_values(**settings)
+        if not values:
+            return jsonify({"error": "Player valuation data is unavailable. Try again."}), 503
+        # Scan the rest of the league rosters for mutual trade compatibility and dropoffs
+        return jsonify(find_compatible_trade_partners(league, your_id, values, target_position=position))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        app.logger.exception("Compatible trade partner scanning failed")
+        return jsonify({"error": "Could not scan for compatible partners. Try again."}), 503
+
+
 # ------------------------------------------------------------------------------
 # ACCOUNT AND SAVED-LEAGUE ROUTES
 # ------------------------------------------------------------------------------

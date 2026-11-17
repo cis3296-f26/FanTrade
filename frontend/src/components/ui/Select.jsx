@@ -2,8 +2,9 @@ import * as RadixSelect from "@radix-ui/react-select";
 import "./Select.css";
 
 export default function Select({ id, value, onChange, disabled, placeholder, children }) {
+  const selectValue = value !== undefined && value !== null && value !== "" ? String(value) : undefined;
   return (
-    <RadixSelect.Root value={value} onValueChange={onChange} disabled={disabled}>
+    <RadixSelect.Root value={selectValue} onValueChange={onChange} disabled={disabled}>
       <RadixSelect.Trigger id={id} className="select-trigger">
         <RadixSelect.Value placeholder={placeholder ?? "Select…"} />
         <RadixSelect.Icon className="select-icon">▾</RadixSelect.Icon>

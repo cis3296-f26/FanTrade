@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as ToggleGroup from "@radix-ui/react-toggle-group";
 import { fetchJson } from "../../lib/api";
 import Select, { SelectItem } from "../ui/Select";
@@ -11,6 +11,7 @@ function PlayerPicker({
   excluded,
   popularPlayers,
   settings,
+  calcMode,
   onAdd,
   onRemove,
   disabled,
@@ -117,7 +118,7 @@ function PlayerPicker({
                 >
                   <span className="chip-name">{player.name}</span>
                   <span className="chip-pos">{player.position}</span>
-                  {player.value > 0 && (
+                  {calcMode !== "experimental" && player.value > 0 && (
                     <span className="chip-val">{player.value.toLocaleString()}</span>
                   )}
                 </button>
@@ -147,7 +148,7 @@ function PlayerPicker({
               </div>
 
               <div className="player-right-group">
-                {player.value > 0 && (
+                {calcMode !== "experimental" && player.value > 0 && (
                   <span className="player-val-pill">
                     {player.value.toLocaleString()} pts
                   </span>
@@ -186,7 +187,7 @@ function PlayerPicker({
                 </div>
 
                 <div className="player-right-group">
-                  {player.value > 0 && (
+                  {calcMode !== "experimental" && player.value > 0 && (
                     <span className="player-val-pill">
                       {player.value.toLocaleString()} pts
                     </span>
@@ -324,10 +325,18 @@ export default function TradeEvaluation() {
       .catch(() => {});
   }, [calcMode, isDynasty, numQbs, numTeams, ppr]);
 
+  // Keep refs of give and receive for settings sync effect without triggering on card adds
+  const giveRef = useRef(give);
+  const receiveRef = useRef(receive);
+  useEffect(() => {
+    giveRef.current = give;
+    receiveRef.current = receive;
+  }, [give, receive]);
+
   // Keep already-selected player cards in sync with updated settings
   useEffect(() => {
     if (calcMode !== "fancalc") return;
-    const allIds = [...give, ...receive].map((p) => p.player_id);
+    const allIds = [...giveRef.current, ...receiveRef.current].map((p) => p.player_id);
     if (allIds.length === 0) return;
 
     const params = new URLSearchParams({
@@ -550,6 +559,7 @@ export default function TradeEvaluation() {
             excluded={excluded}
             popularPlayers={popularPlayers}
             settings={{ isDynasty, numQbs, numTeams, ppr }}
+            calcMode={calcMode}
             disabled={loading}
             onAdd={(player) => {
               setGive((prev) => [...prev, player]);
@@ -568,6 +578,7 @@ export default function TradeEvaluation() {
             excluded={excluded}
             popularPlayers={popularPlayers}
             settings={{ isDynasty, numQbs, numTeams, ppr }}
+            calcMode={calcMode}
             disabled={loading}
             onAdd={(player) => {
               setReceive((prev) => [...prev, player]);
@@ -598,9 +609,7 @@ export default function TradeEvaluation() {
       {result && result.mode === "fancalc" && (
         <div className="trade-result-section" role="status">
           <div className={`trade-verdict-banner verdict-${(result.favors || "even").toLowerCase()}`}>
-            <span className="verdict-tag">
-              {result.favors === "Even" ? "Fair Deal" : result.favors === "Receive" ? "Winning Trade" : "Losing Trade"}
-            </span>
+            <span className="verdict-tag">Consensus Verdict</span>
             <h2 className="verdict-title">{result.verdict}</h2>
           </div>
 
@@ -685,91 +694,97 @@ export default function TradeEvaluation() {
       )}
 
       {/* Experimental Result Display */}
-{result && result.mode === "experimental" && (
-  <div className="trade-result-section" role="status">
-    <div className="trade-verdict-banner verdict-even">
-      <span className="verdict-tag">Experimental Model</span>
-      <h2 className="verdict-title">{result.verdict}</h2>
-    </div>
+      {result && result.mode === "experimental" && (() => {
+        const isWin = result.difference > 0;
+        const isLoss = result.difference < 0;
+        const verdictBannerClass = isWin ? "verdict-receive" : isLoss ? "verdict-give" : "verdict-even";
 
-    <div className="trade-summary-cards">
-      <div className="summary-card">
-        <span className="summary-card-label">Give score</span>
-        <span className="summary-card-val">
-          {result.give_total.toFixed(2)}
-        </span>
-      </div>
+        return (
+          <div className="trade-result-section" role="status">
+            <div className={`trade-verdict-banner ${verdictBannerClass}`}>
+              <span className="verdict-tag">Experimental Model</span>
+              <h2 className="verdict-title">{result.verdict}</h2>
+            </div>
 
-      <div className="summary-card">
-        <span className="summary-card-label">Receive score</span>
-        <span className="summary-card-val">
-          {result.receive_total.toFixed(2)}
-        </span>
-      </div>
+            <div className="trade-summary-cards">
+              <div className="summary-card">
+                <span className="summary-card-label">Give score</span>
+                <span className="summary-card-val">
+                  {result.give_total.toFixed(2)}
+                </span>
+              </div>
 
-      <div className="summary-card">
-        <span className="summary-card-label">Difference</span>
-        <span className="summary-card-val">
-          {result.difference > 0 ? "+" : ""}
-          {result.difference.toFixed(2)}
-        </span>
-      </div>
-    </div>
+              <div className="summary-card">
+                <span className="summary-card-label">Receive score</span>
+                <span className="summary-card-val">
+                  {result.receive_total.toFixed(2)}
+                </span>
+              </div>
 
-    <div className="trade-table-container">
-      <table className="trade-table">
-        <thead>
-          <tr>
-            <th>Side</th>
-            <th>Player</th>
-            <th>Games</th>
-            <th>Fantasy pts/g</th>
-            <th>Usage adjustment</th>
-            <th>Efficiency adjustment</th>
-            <th>Experimental score</th>
-          </tr>
-        </thead>
-        <tbody>
-          {[
-            ["Give", result.give],
-            ["Receive", result.receive],
-          ].flatMap(([sideName, players]) =>
-            players.map((player) => (
-              <tr key={`${sideName}-${player.player_id}`}>
-                <td>
-                  <span className={`side-badge side-${sideName.toLowerCase()}`}>
-                    {sideName}
-                  </span>
-                </td>
-                <td className="player-table-name">
-                  {player.name} ({player.position === "DEF" ? "D/ST" : player.position})
-                </td>
-                <td>{player.games}</td>
-                <td>{player.baseline.toFixed(2)}</td>
-                <td>
-                  {player.usage_adjustment > 0 ? "+" : ""}
-                  {player.usage_adjustment.toFixed(2)}
-                </td>
-                <td>
-                  {player.efficiency_adjustment > 0 ? "+" : ""}
-                  {player.efficiency_adjustment.toFixed(2)}
-                </td>
-                  <td className="player-table-name">
-                    {player.name} ({player.position === "DEF" ? "D/ST" : player.position})
-                    <ExperimentalScoringDetails details={player.scoring_details} />
-                  </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+              <div className="summary-card">
+                <span className="summary-card-label">Difference</span>
+                <span className={`summary-card-val ${isWin ? "text-win" : isLoss ? "text-loss" : ""}`}>
+                  {result.difference > 0 ? "+" : ""}
+                  {result.difference.toFixed(2)}
+                </span>
+              </div>
+            </div>
 
-          <p className="muted">
-            Experimental scoring incorporates fantasy points per game, including PPR setting. The model then adds or subtracts points based on each player’s workload and efficiency. For wide receivers, workload includes targets per game, red-zone opportunities, and snap share. Efficiency uses yards per target and catch rate, with more weight on yards per target and smaller adjustments when a player has few targets. Benchmark is 2025 league avg.
-          </p>
-        </div>
-      )}
+            <div className="trade-table-container">
+              <table className="trade-table">
+                <thead>
+                  <tr>
+                    <th>Side</th>
+                    <th>Player</th>
+                    <th>Games</th>
+                    <th>Fantasy pts/g</th>
+                    <th>Usage adjustment</th>
+                    <th>Efficiency adjustment</th>
+                    <th>Experimental score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Give", result.give],
+                    ["Receive", result.receive],
+                  ].flatMap(([sideName, players]) =>
+                    players.map((player) => (
+                      <tr key={`${sideName}-${player.player_id}`}>
+                        <td>
+                          <span className={`side-badge side-${sideName.toLowerCase()}`}>
+                            {sideName}
+                          </span>
+                        </td>
+                        <td className="player-table-name">
+                          {player.name} ({player.position === "DEF" ? "D/ST" : player.position})
+                        </td>
+                        <td>{player.games}</td>
+                        <td>{player.baseline.toFixed(2)}</td>
+                        <td>
+                          {player.usage_adjustment > 0 ? "+" : ""}
+                          {player.usage_adjustment.toFixed(2)}
+                        </td>
+                        <td>
+                          {player.efficiency_adjustment > 0 ? "+" : ""}
+                          {player.efficiency_adjustment.toFixed(2)}
+                        </td>
+                        <td className="player-table-value">
+                          {player.value.toFixed(2)}
+                          <ExperimentalScoringDetails details={player.scoring_details} />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="muted">
+              Experimental scoring incorporates fantasy points per game, including PPR setting. The model then adds or subtracts points based on each player’s workload and efficiency. For wide receivers, workload includes targets per game, red-zone opportunities, and snap share. Efficiency uses yards per target and catch rate, with more weight on yards per target and smaller adjustments when a player has few targets. Benchmark is 2025 league avg.
+            </p>
+          </div>
+        );
+      })()}
     </div>
   );
 }
