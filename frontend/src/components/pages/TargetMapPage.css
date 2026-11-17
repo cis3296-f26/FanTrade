@@ -1,0 +1,21 @@
+.target-map-page {
+  min-height: 100vh;
+  background: var(--dark);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+}
+
+.target-map-main {
+  width: 100%;
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 40px 32px 80px;
+  flex: 1;
+}
+
+@media (max-width: 600px) {
+  .target-map-main {
+    padding: 28px 16px 60px;
+  }
+}

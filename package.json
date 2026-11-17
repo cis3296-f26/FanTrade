@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@radix-ui/react-toggle-group": "^1.2.1",
     "react-router-dom": "^7.18.5"
   }
 }

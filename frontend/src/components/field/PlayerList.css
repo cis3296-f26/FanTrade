@@ -1,0 +1,151 @@
+.player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-list-filters {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.player-list-search {
+  flex: 1;
+  min-height: 38px;
+  padding: 6px 12px;
+  border: 1px solid rgba(245, 247, 250, 0.15);
+  border-radius: 4px;
+  background: rgba(245, 247, 250, 0.06);
+  color: var(--text-bright);
+  font: inherit;
+  font-size: 14px;
+}
+
+.player-list-search::placeholder {
+  color: rgba(245, 247, 250, 0.3);
+}
+
+.player-list-search:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+.player-list-pos {
+  min-height: 38px;
+  padding: 6px 10px;
+  border: 1px solid rgba(245, 247, 250, 0.15);
+  border-radius: 4px;
+  background: rgba(245, 247, 250, 0.06);
+  color: var(--text-bright);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.player-list-pos:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+.player-list-scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid rgba(245, 247, 250, 0.1);
+  border-radius: 6px;
+  background: rgba(245, 247, 250, 0.02);
+}
+
+.player-list-count {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: rgba(245, 247, 250, 0.4);
+  border-bottom: 1px solid rgba(245, 247, 250, 0.08);
+}
+
+.player-list-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.player-row-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(245, 247, 250, 0.05);
+}
+
+.player-list-row:not(:last-child) {
+  border-bottom: 1px solid rgba(245, 247, 250, 0.06);
+}
+
+.player-list-row:hover,
+.player-list-row:focus-visible {
+  background: rgba(245, 247, 250, 0.06);
+  outline: none;
+}
+
+.player-list-row[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.player-list-row[aria-disabled="true"]:hover {
+  background: transparent;
+}
+
+.player-list-row--dragging {
+  background: rgba(61, 159, 151, 0.12);
+}
+
+.player-row-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-row-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.player-row-team {
+  font-size: 12px;
+  color: rgba(245, 247, 250, 0.45);
+}
+
+.player-row-pos {
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(54, 156, 110, 0.18);
+  color: #8ed3ad;
+}
+
+.player-list-empty {
+  padding: 16px 12px;
+  color: rgba(245, 247, 250, 0.4);
+  font-size: 13px;
+  text-align: center;
+}
+
+.player-list-hint {
+  font-size: 12px;
+  color: rgba(245, 247, 250, 0.35);
+  margin-top: 2px;
+}

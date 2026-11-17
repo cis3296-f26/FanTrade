@@ -1,0 +1,161 @@
+.stats-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stats-panel-empty {
+  padding: 24px 16px;
+  border: 1px dashed rgba(245, 247, 250, 0.18);
+  border-radius: 6px;
+  color: rgba(245, 247, 250, 0.4);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Player stat card */
+.stats-player-card {
+  padding: 16px;
+  border-radius: 6px;
+  background: rgba(245, 247, 250, 0.04);
+  border: 1px solid rgba(245, 247, 250, 0.1);
+}
+
+.stats-player-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.stats-player-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(245, 247, 250, 0.06);
+}
+
+.stats-player-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stats-player-dot {
+  display: none;
+}
+
+.stats-player-name {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats-player-team {
+  font-size: 13px;
+  color: rgba(245, 247, 250, 0.45);
+  flex-shrink: 0;
+}
+
+.stats-player-rows {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.stats-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stats-stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-bright);
+  line-height: 1.2;
+}
+
+.stats-stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(245, 247, 250, 0.45);
+}
+
+/* Comparison card */
+.stats-compare-card {
+  padding: 16px;
+  border-radius: 6px;
+  background: rgba(245, 247, 250, 0.03);
+  border: 1px solid rgba(245, 247, 250, 0.1);
+}
+
+.stats-compare-card h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(245, 247, 250, 0.45);
+}
+
+.stats-overlap-number {
+  font-size: 36px;
+  font-weight: 600;
+  color: var(--text-bright);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.stats-overlap-bar-track {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(245, 247, 250, 0.1);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.stats-overlap-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--teal);
+  transition: width 0.5s ease;
+}
+
+.stats-overlap-note {
+  font-size: 12px;
+  color: rgba(245, 247, 250, 0.45);
+  margin: 0 0 12px;
+}
+
+.stats-diff-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(245, 247, 250, 0.4);
+  margin: 0 0 4px;
+}
+
+.stats-diff-text {
+  font-size: 13px;
+  color: rgba(245, 247, 250, 0.75);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Data notes */
+.stats-notes {
+  font-size: 12px;
+  color: rgba(245, 247, 250, 0.35);
+  line-height: 1.6;
+}
+
+.stats-notes p {
+  margin: 0 0 4px;
+}

@@ -137,6 +137,12 @@ body {
   background: rgba(245, 247, 250, 0.06);
 }
 
+.btn-active {
+  background: rgba(61, 159, 151, 0.15);
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
 .btn-ghost {
   background: var(--off-white);
   color: var(--green);

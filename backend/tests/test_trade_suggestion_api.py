@@ -2,7 +2,10 @@ import unittest
 from unittest.mock import patch
 
 from app import app
-from test_trade_suggestions import fixture
+try:
+    from tests.test_trade_suggestions import fixture
+except ImportError:
+    from test_trade_suggestions import fixture
 
 
 class TradeSuggestionApiTests(unittest.TestCase):
