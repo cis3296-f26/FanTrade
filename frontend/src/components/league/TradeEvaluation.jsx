@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import * as ToggleGroup from "@radix-ui/react-toggle-group";
+import { Link } from "react-router-dom";
 import { fetchJson } from "../../lib/api";
+import { useAuth } from "../../lib/AuthContext";
 import Select, { SelectItem } from "../ui/Select";
 import "./TradeEvaluation.css";
+
+const TRADE_POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"];
 
 function PlayerPicker({
   side,
@@ -10,6 +14,10 @@ function PlayerPicker({
   selected,
   excluded,
   popularPlayers,
+  leaguePlayers,
+  leagueAnalysisActive,
+  positionFilter = [],
+  playerViewMode,
   settings,
   calcMode,
   onAdd,
@@ -74,9 +82,77 @@ function PlayerPicker({
     };
   }, [query, isDynasty, numQbs, numTeams, ppr]);
 
+  const searchText = query.trim().toLowerCase();
+  const leaguePlayerIds = new Set(leaguePlayers.map((player) => player.player_id));
   const available = matches.filter(
-    (player) => !excluded.includes(player.player_id)
+    (player) =>
+      !excluded.includes(player.player_id) &&
+      !leaguePlayerIds.has(player.player_id) &&
+      (side !== "receive" ||
+        positionFilter.length === 0 ||
+        positionFilter.includes(player.position))
   );
+  const availableLeaguePlayers = leaguePlayers
+    .filter(
+      (player) =>
+        !excluded.includes(player.player_id) &&
+        (side !== "receive" ||
+          positionFilter.length === 0 ||
+          positionFilter.includes(player.position)) &&
+        (!searchText ||
+          player.name.toLowerCase().includes(searchText) ||
+          player.roster_name.toLowerCase().includes(searchText))
+    )
+    .sort((a, b) => {
+      if (side !== "receive" || playerViewMode !== "ranked") return 0;
+      return (b.value ?? 0) - (a.value ?? 0) || a.name.localeCompare(b.name);
+    });
+  const leaguePlayerGroups = Array.from(
+    availableLeaguePlayers.reduce((groups, player) => {
+      const group = groups.get(player.roster_id) ?? {
+        roster_id: player.roster_id,
+        roster_name: player.roster_name,
+        owner_name: player.owner_name,
+        players: [],
+      };
+      group.players.push(player);
+      groups.set(player.roster_id, group);
+      return groups;
+    }, new Map()).values()
+  );
+
+  function renderLeaguePlayer(player) {
+    return (
+      <li key={player.player_id} className="trade-player-row">
+        <div className="player-left">
+          <span className="pos-badge">{player.position || "FLEX"}</span>
+          <div className="player-details">
+            <span className="player-name">{player.name}</span>
+            <span className="player-meta">
+              {player.team || "FA"} · {player.roster_name}
+            </span>
+          </div>
+        </div>
+        {player.value > 0 && (
+          <span className="player-val-pill" title="FantasyCalc trade value">
+            {player.value.toLocaleString()}
+          </span>
+        )}
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          disabled={disabled || selected.length >= 10}
+          onClick={() => {
+            onAdd(player);
+            setQuery("");
+            setMatches([]);
+          }}
+        >
+          + Add
+        </button>
+      </li>
+    );
+  }
 
   return (
     <div className="trade-side-panel">
@@ -101,37 +177,77 @@ function PlayerPicker({
       </div>
 
       {/* Quick-add popular trade targets */}
-      {popularPlayers && popularPlayers.length > 0 && query.trim().length < 2 && (
+      {!leagueAnalysisActive &&
+        popularPlayers &&
+        popularPlayers.length > 0 &&
+        query.trim().length < 2 && (
         <div className="trade-quick-section">
           <span className="quick-label">Top Targets:</span>
           <div className="quick-chip-list">
-            {popularPlayers.slice(0, 6).map((player) => {
-              const isExcluded = excluded.includes(player.player_id);
-              return (
-                <button
-                  key={player.player_id}
-                  type="button"
-                  className="btn-quick-chip"
-                  disabled={disabled || isExcluded || selected.length >= 10}
-                  onClick={() => onAdd(player)}
-                  title={isExcluded ? "Already in trade" : `Add ${player.name}`}
-                >
-                  <span className="chip-name">{player.name}</span>
-                  <span className="chip-pos">{player.position}</span>
-                  {calcMode !== "experimental" && player.value > 0 && (
-                    <span className="chip-val">{player.value.toLocaleString()}</span>
-                  )}
-                </button>
-              );
-            })}
+            {popularPlayers
+              .filter((player) => !leaguePlayerIds.has(player.player_id))
+              .slice(0, 6)
+              .map((player) => {
+                const isExcluded = excluded.includes(player.player_id);
+                return (
+                  <button
+                    key={player.player_id}
+                    type="button"
+                    className="btn-quick-chip"
+                    disabled={disabled || isExcluded || selected.length >= 10}
+                    onClick={() => onAdd(player)}
+                    title={isExcluded ? "Already in trade" : `Add ${player.name}`}
+                  >
+                    <span className="chip-name">{player.name}</span>
+                    <span className="chip-pos">{player.position}</span>
+                    {calcMode !== "experimental" && player.value > 0 && (
+                      <span className="chip-val">{player.value.toLocaleString()}</span>
+                    )}
+                  </button>
+                );
+              })}
           </div>
+        </div>
+      )}
+
+      {leaguePlayers.length > 0 && (
+        <div className="trade-league-player-section">
+          <span className="quick-label">
+            {side === "give"
+              ? "Players from your selected roster:"
+              : "Players from other league rosters:"}
+          </span>
+          {availableLeaguePlayers.length > 0 &&
+          side === "receive" &&
+          playerViewMode === "teams" ? (
+            <div className="trade-match-list trade-league-player-list trade-league-player-groups">
+              {leaguePlayerGroups.map((group) => (
+                <details key={group.roster_id} className="trade-league-roster-group">
+                  <summary className="trade-league-roster-heading">
+                    {group.roster_name} · {group.owner_name}
+                    <span>{group.players.length} players</span>
+                  </summary>
+                  <ul className="trade-league-group-list">
+                    {group.players.map(renderLeaguePlayer)}
+                  </ul>
+                </details>
+              ))}
+            </div>
+          ) : availableLeaguePlayers.length > 0 ? (
+            <ul className="trade-match-list trade-league-player-list">
+              {availableLeaguePlayers.map(renderLeaguePlayer)}
+            </ul>
+          ) : !searchText ? (
+            <p className="muted">All players from this group are already in the calculation.</p>
+          ) : null}
         </div>
       )}
 
       {loading && <p className="muted" role="status">Searching players…</p>}
       {error && <p className="error-message" role="alert">{error}</p>}
 
-      {!loading && query.trim().length >= 2 && !error && available.length === 0 && (
+      {!loading && query.trim().length >= 2 && !error &&
+        available.length === 0 && availableLeaguePlayers.length === 0 && (
         <p className="muted">No matching players found.</p>
       )}
 
@@ -277,9 +393,26 @@ function ExperimentalScoringDetails({ details }) {
 
 export default function TradeEvaluation() {
   const currentYear = new Date().getFullYear();
+  const { savedLeagues } = useAuth();
+  const savedSleeperLeagues = savedLeagues.filter(
+    (league) => league.platform === "sleeper"
+  );
 
   // Mode: "fancalc" (standard consensus) or "experimental" (Luke's nflverse model)
   const [calcMode, setCalcMode] = useState("fancalc");
+
+  // Optional league roster analysis
+  const [selectedLeagueId, setSelectedLeagueId] = useState("");
+  const [league, setLeague] = useState(null);
+  const [selectedRosterId, setSelectedRosterId] = useState("");
+  const [leagueLoading, setLeagueLoading] = useState(false);
+  const [leagueError, setLeagueError] = useState("");
+  const [leagueAttempt, setLeagueAttempt] = useState(0);
+  const [selectedPositions, setSelectedPositions] = useState([]);
+  const [receivePlayerView, setReceivePlayerView] = useState("teams");
+  const [leaguePlayerScores, setLeaguePlayerScores] = useState({});
+  const [leaguePlayerScoresKey, setLeaguePlayerScoresKey] = useState("");
+  const [leagueScoreError, setLeagueScoreError] = useState(null);
 
   // Popular players quick options
   const [popularPlayers, setPopularPlayers] = useState([]);
@@ -303,6 +436,126 @@ export default function TradeEvaluation() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const leagueScoreKey = `${selectedLeagueId}|${isDynasty}|${numQbs}|${numTeams}|${ppr}`;
+  const hasLeagueRosterPlayers = Boolean(
+    league?.rosters.some((roster) => (roster.players ?? []).length > 0)
+  );
+  const activeLeagueScoreError =
+    leagueScoreError?.key === leagueScoreKey ? leagueScoreError.message : "";
+  const leagueScoreLoading = Boolean(
+    selectedLeagueId &&
+      league &&
+      hasLeagueRosterPlayers &&
+      leaguePlayerScoresKey !== leagueScoreKey &&
+      !activeLeagueScoreError
+  );
+
+  useEffect(() => {
+    if (!selectedLeagueId) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+
+    async function loadLeague() {
+      try {
+        const data = await fetchJson(
+          `/api/sleeper/rosters/${encodeURIComponent(selectedLeagueId)}`,
+          { signal: controller.signal }
+        );
+
+        if (!Array.isArray(data.rosters)) {
+          throw new Error("The server did not return valid roster data.");
+        }
+
+        if (!controller.signal.aborted) {
+          setLeague(data);
+        }
+      } catch (requestError) {
+        if (!controller.signal.aborted) {
+          setLeagueError(requestError.message);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLeagueLoading(false);
+        }
+      }
+    }
+
+    loadLeague();
+    return () => controller.abort();
+  }, [selectedLeagueId, leagueAttempt]);
+
+  useEffect(() => {
+    if (!selectedLeagueId || !league) {
+      return undefined;
+    }
+
+    const playerIds = Array.from(new Set(
+      league.rosters.flatMap((roster) =>
+        (roster.players ?? [])
+          .filter((player) => player.player_id !== null && player.player_id !== undefined)
+          .map((player) => String(player.player_id).trim())
+          .filter(Boolean)
+      )
+    ));
+    if (playerIds.length === 0) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+
+    async function loadLeagueScores() {
+      try {
+        const batches = [];
+        for (let index = 0; index < playerIds.length; index += 80) {
+          batches.push(playerIds.slice(index, index + 80));
+        }
+
+        const scoreLists = await Promise.all(
+          batches.map((ids) => {
+            const params = new URLSearchParams({
+              ids: ids.join(","),
+              isDynasty: isDynasty ? "true" : "false",
+              numQbs: String(numQbs),
+              numTeams: String(numTeams),
+              ppr: String(ppr),
+            });
+            return fetchJson(
+              `/api/trade-evaluation/players?${params.toString()}`,
+              { signal: controller.signal }
+            );
+          })
+        );
+
+        if (scoreLists.some((list) => !Array.isArray(list))) {
+          throw new Error("The server did not return valid player trade scores.");
+        }
+
+        if (!controller.signal.aborted) {
+          const scores = {};
+          scoreLists.flat().forEach((player) => {
+            if (player.player_id && Number.isFinite(Number(player.value))) {
+              scores[String(player.player_id)] = Number(player.value);
+            }
+          });
+          setLeaguePlayerScores(scores);
+          setLeaguePlayerScoresKey(leagueScoreKey);
+          setLeagueScoreError(null);
+        }
+      } catch (requestError) {
+        if (!controller.signal.aborted) {
+          setLeagueScoreError({
+            key: leagueScoreKey,
+            message: requestError.message,
+          });
+        }
+      }
+    }
+
+    loadLeagueScores();
+    return () => controller.abort();
+  }, [selectedLeagueId, league, isDynasty, numQbs, numTeams, ppr, leagueScoreKey]);
 
   // Load top popular players matching selected settings
   useEffect(() => {
@@ -378,7 +631,75 @@ export default function TradeEvaluation() {
     setError("");
   };
 
+  function handleLeagueChange(leagueId) {
+    setSelectedLeagueId(leagueId);
+    setSelectedRosterId("");
+    setLeague(null);
+    setLeagueLoading(Boolean(leagueId));
+    setGive([]);
+    setReceive([]);
+    setLeagueError("");
+    setSelectedPositions([]);
+    setReceivePlayerView("teams");
+    setLeaguePlayerScores({});
+    setLeaguePlayerScoresKey("");
+    setLeagueScoreError(null);
+    clearResult();
+  }
+
+  function handleRosterChange(rosterId) {
+    setSelectedRosterId(rosterId);
+    setGive([]);
+    setReceive([]);
+    setSelectedPositions([]);
+    setReceivePlayerView("teams");
+    clearResult();
+  }
+
+  function togglePosition(position) {
+    setSelectedPositions((current) =>
+      current.includes(position)
+        ? current.filter((item) => item !== position)
+        : [...current, position]
+    );
+  }
+
+  function retryLeagueLoad() {
+    setLeagueError("");
+    setLeagueLoading(true);
+    setLeagueAttempt((attempt) => attempt + 1);
+  }
+
   const excluded = [...give, ...receive].map((player) => player.player_id);
+  const selectedRoster = league?.rosters.find(
+    (roster) => String(roster.roster_id) === selectedRosterId
+  );
+  const toTradePlayer = (player, roster) => ({
+    player_id: String(player.player_id),
+    name: player.full_name || player.name,
+    position: player.position,
+    team: player.team,
+    value: leaguePlayerScoresKey === leagueScoreKey
+      ? leaguePlayerScores[String(player.player_id)] ?? 0
+      : 0,
+    roster_id: String(roster.roster_id),
+    roster_name: roster.team_name || `Team ${roster.roster_id}`,
+    owner_name: roster.owner_name || "Unknown owner",
+  });
+  const leagueGivePlayers = selectedRoster
+    ? (selectedRoster.players ?? []).map((player) =>
+        toTradePlayer(player, selectedRoster)
+      )
+    : [];
+  const leagueReceivePlayers = selectedRoster
+    ? league.rosters
+        .filter((roster) => String(roster.roster_id) !== selectedRosterId)
+        .flatMap((roster) =>
+          (roster.players ?? []).map((player) => toTradePlayer(player, roster))
+        )
+    : [];
+  const experimentalPlayerLimitExceeded =
+    calcMode === "experimental" && (give.length > 10 || receive.length > 10);
 
   async function evaluate(event) {
     event.preventDefault();
@@ -427,6 +748,132 @@ export default function TradeEvaluation() {
       <p className="trade-description">
         Evaluate trades with real-market consensus player values, or test experimental stats-based models.
       </p>
+
+      <section className="trade-league-analysis" aria-labelledby="trade-league-heading">
+        <h2 id="trade-league-heading">Analyze a league <span>Optional</span></h2>
+        {savedSleeperLeagues.length > 0 ? (
+          <>
+            <div className="trade-league-controls">
+              <div className="field">
+                <label htmlFor="trade-league-select">Saved Sleeper league</label>
+                <Select
+                  id="trade-league-select"
+                  value={selectedLeagueId}
+                  placeholder="Choose a league"
+                  disabled={leagueLoading || loading}
+                  onChange={handleLeagueChange}
+                >
+                  {savedSleeperLeagues.map((savedLeague) => (
+                    <SelectItem
+                      key={savedLeague.league_id}
+                      value={savedLeague.league_id}
+                    >
+                      {savedLeague.league_name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </div>
+
+              {league?.rosters.length > 0 && (
+                <div className="field">
+                  <label htmlFor="trade-roster-select">Your roster</label>
+                  <Select
+                    id="trade-roster-select"
+                    value={selectedRosterId}
+                    placeholder="Choose your team"
+                    disabled={loading}
+                    onChange={handleRosterChange}
+                  >
+                    {league.rosters.map((roster) => (
+                      <SelectItem
+                        key={roster.roster_id}
+                        value={roster.roster_id}
+                      >
+                        {roster.team_name} · {roster.owner_name}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            {leagueLoading && <p className="muted" role="status">Loading league rosters…</p>}
+            {leagueError && (
+              <div>
+                <p className="error-message" role="alert">{leagueError}</p>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-md"
+                  onClick={retryLeagueLoad}
+                >
+                  Try again
+                </button>
+              </div>
+            )}
+            {league && league.rosters.length === 0 && (
+              <p className="muted">This league has no rosters to analyze.</p>
+            )}
+            {selectedRosterId && (
+              <>
+                <p className="muted" role="status">
+                  Choose players from the roster options below. Players are added only when you select + Add.
+                </p>
+                <div className="trade-league-player-controls">
+                  <fieldset className="trade-position-filter">
+                    <legend>Positions to trade for</legend>
+                    <p className="muted">Leave all positions unchecked to show everyone.</p>
+                    <div className="trade-position-options">
+                      {TRADE_POSITIONS.map((position) => (
+                        <label key={position}>
+                          <input
+                            type="checkbox"
+                            checked={selectedPositions.includes(position)}
+                            onChange={() => togglePosition(position)}
+                          />
+                          {position}
+                        </label>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      disabled={selectedPositions.length === 0}
+                      onClick={() => setSelectedPositions([])}
+                    >
+                      Clear positions
+                    </button>
+                  </fieldset>
+
+                  <div className="field">
+                    <label htmlFor="receive-player-view">I Receive player view</label>
+                    <Select
+                      id="receive-player-view"
+                      value={receivePlayerView}
+                      onChange={setReceivePlayerView}
+                    >
+                      <SelectItem value="ranked">All players ranked by trade score</SelectItem>
+                      <SelectItem value="teams">Dropdowns for each team</SelectItem>
+                    </Select>
+                  </div>
+                </div>
+                {leagueScoreLoading && (
+                  <p className="muted" role="status">Loading trade scores…</p>
+                )}
+                {activeLeagueScoreError && (
+                  <p className="error-message" role="alert">
+                    Could not load player trade scores: {activeLeagueScoreError}
+                  </p>
+                )}
+              </>
+            )}
+          </>
+        ) : (
+          <p className="muted">
+            Save a Sleeper league from <Link to="/search">League View</Link> to load rosters here.
+            {" "}You need to sign in, then save a league.
+          </p>
+        )}
+      </section>
 
       {/* Mode Toggle */}
       <ToggleGroup.Root
@@ -558,6 +1005,9 @@ export default function TradeEvaluation() {
             selected={give}
             excluded={excluded}
             popularPlayers={popularPlayers}
+            leaguePlayers={leagueGivePlayers}
+            leagueAnalysisActive={Boolean(selectedLeagueId)}
+            playerViewMode={receivePlayerView}
             settings={{ isDynasty, numQbs, numTeams, ppr }}
             calcMode={calcMode}
             disabled={loading}
@@ -577,6 +1027,10 @@ export default function TradeEvaluation() {
             selected={receive}
             excluded={excluded}
             popularPlayers={popularPlayers}
+            leaguePlayers={leagueReceivePlayers}
+            leagueAnalysisActive={Boolean(selectedLeagueId)}
+            positionFilter={selectedPositions}
+            playerViewMode={receivePlayerView}
             settings={{ isDynasty, numQbs, numTeams, ppr }}
             calcMode={calcMode}
             disabled={loading}
@@ -591,12 +1045,23 @@ export default function TradeEvaluation() {
           />
         </div>
 
+        {experimentalPlayerLimitExceeded && (
+          <p className="muted" role="alert">
+            Experimental mode supports up to 10 players per side. Remove players from either side to evaluate this league.
+          </p>
+        )}
+
         {/* Evaluate Action */}
         <div className="trade-action-row">
           <button
             type="submit"
             className="btn btn-primary btn-lg trade-submit-button"
-            disabled={loading || give.length === 0 || receive.length === 0}
+            disabled={
+              loading ||
+              give.length === 0 ||
+              receive.length === 0 ||
+              experimentalPlayerLimitExceeded
+            }
           >
             {loading ? "Evaluating Trade…" : "Evaluate Trade"}
           </button>
