@@ -44,6 +44,54 @@
   gap: 16px;
 }
 
+.trade-league-player-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin: 12px 0;
+}
+
+.trade-position-filter {
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(245, 247, 250, 0.12);
+  border-radius: 4px;
+}
+
+.trade-position-filter legend {
+  padding: 0 6px;
+  color: rgba(245, 247, 250, 0.7);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.trade-position-filter .muted {
+  margin: 0 0 8px;
+}
+
+.trade-position-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-bottom: 8px;
+}
+
+.trade-position-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(245, 247, 250, 0.8);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.trade-position-options input {
+  accent-color: var(--green);
+}
+
 .trade-league-analysis a {
   color: #3D9F97;
   text-decoration: none;
@@ -388,11 +436,20 @@
 }
 
 .trade-league-roster-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
   margin: 0 0 4px;
   padding: 4px 8px;
   color: rgba(245, 247, 250, 0.7);
   font-size: 12px;
   font-weight: 600;
+  cursor: pointer;
+}
+
+.trade-league-roster-heading span {
+  color: rgba(245, 247, 250, 0.45);
+  font-weight: 400;
 }
 
 .trade-league-group-list {
@@ -685,6 +742,9 @@
     grid-template-columns: 1fr;
   }
   .trade-summary-cards {
+    grid-template-columns: 1fr;
+  }
+  .trade-league-player-controls {
     grid-template-columns: 1fr;
   }
 }

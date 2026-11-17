@@ -6,6 +6,8 @@ import { useAuth } from "../../lib/AuthContext";
 import Select, { SelectItem } from "../ui/Select";
 import "./TradeEvaluation.css";
 
+const TRADE_POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"];
+
 function PlayerPicker({
   side,
   label,
@@ -14,6 +16,8 @@ function PlayerPicker({
   popularPlayers,
   leaguePlayers,
   leagueAnalysisActive,
+  positionFilter = [],
+  playerViewMode,
   settings,
   calcMode,
   onAdd,
@@ -83,15 +87,26 @@ function PlayerPicker({
   const available = matches.filter(
     (player) =>
       !excluded.includes(player.player_id) &&
-      !leaguePlayerIds.has(player.player_id)
+      !leaguePlayerIds.has(player.player_id) &&
+      (side !== "receive" ||
+        positionFilter.length === 0 ||
+        positionFilter.includes(player.position))
   );
-  const availableLeaguePlayers = leaguePlayers.filter(
-    (player) =>
-      !excluded.includes(player.player_id) &&
-      (!searchText ||
-        player.name.toLowerCase().includes(searchText) ||
-        player.roster_name.toLowerCase().includes(searchText))
-  );
+  const availableLeaguePlayers = leaguePlayers
+    .filter(
+      (player) =>
+        !excluded.includes(player.player_id) &&
+        (side !== "receive" ||
+          positionFilter.length === 0 ||
+          positionFilter.includes(player.position)) &&
+        (!searchText ||
+          player.name.toLowerCase().includes(searchText) ||
+          player.roster_name.toLowerCase().includes(searchText))
+    )
+    .sort((a, b) => {
+      if (side !== "receive" || playerViewMode !== "ranked") return 0;
+      return (b.value ?? 0) - (a.value ?? 0) || a.name.localeCompare(b.name);
+    });
   const leaguePlayerGroups = Array.from(
     availableLeaguePlayers.reduce((groups, player) => {
       const group = groups.get(player.roster_id) ?? {
@@ -118,6 +133,11 @@ function PlayerPicker({
             </span>
           </div>
         </div>
+        {player.value > 0 && (
+          <span className="player-val-pill" title="FantasyCalc trade value">
+            {player.value.toLocaleString()}
+          </span>
+        )}
         <button
           type="button"
           className="btn btn-primary btn-sm"
@@ -197,17 +217,20 @@ function PlayerPicker({
               ? "Players from your selected roster:"
               : "Players from other league rosters:"}
           </span>
-          {availableLeaguePlayers.length > 0 && side === "receive" ? (
+          {availableLeaguePlayers.length > 0 &&
+          side === "receive" &&
+          playerViewMode === "teams" ? (
             <div className="trade-match-list trade-league-player-list trade-league-player-groups">
               {leaguePlayerGroups.map((group) => (
-                <section key={group.roster_id} className="trade-league-roster-group">
-                  <h4 className="trade-league-roster-heading">
+                <details key={group.roster_id} className="trade-league-roster-group">
+                  <summary className="trade-league-roster-heading">
                     {group.roster_name} · {group.owner_name}
-                  </h4>
+                    <span>{group.players.length} players</span>
+                  </summary>
                   <ul className="trade-league-group-list">
                     {group.players.map(renderLeaguePlayer)}
                   </ul>
-                </section>
+                </details>
               ))}
             </div>
           ) : availableLeaguePlayers.length > 0 ? (
@@ -385,6 +408,11 @@ export default function TradeEvaluation() {
   const [leagueLoading, setLeagueLoading] = useState(false);
   const [leagueError, setLeagueError] = useState("");
   const [leagueAttempt, setLeagueAttempt] = useState(0);
+  const [selectedPositions, setSelectedPositions] = useState([]);
+  const [receivePlayerView, setReceivePlayerView] = useState("teams");
+  const [leaguePlayerScores, setLeaguePlayerScores] = useState({});
+  const [leaguePlayerScoresKey, setLeaguePlayerScoresKey] = useState("");
+  const [leagueScoreError, setLeagueScoreError] = useState(null);
 
   // Popular players quick options
   const [popularPlayers, setPopularPlayers] = useState([]);
@@ -408,6 +436,19 @@ export default function TradeEvaluation() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const leagueScoreKey = `${selectedLeagueId}|${isDynasty}|${numQbs}|${numTeams}|${ppr}`;
+  const hasLeagueRosterPlayers = Boolean(
+    league?.rosters.some((roster) => (roster.players ?? []).length > 0)
+  );
+  const activeLeagueScoreError =
+    leagueScoreError?.key === leagueScoreKey ? leagueScoreError.message : "";
+  const leagueScoreLoading = Boolean(
+    selectedLeagueId &&
+      league &&
+      hasLeagueRosterPlayers &&
+      leaguePlayerScoresKey !== leagueScoreKey &&
+      !activeLeagueScoreError
+  );
 
   useEffect(() => {
     if (!selectedLeagueId) {
@@ -444,6 +485,77 @@ export default function TradeEvaluation() {
     loadLeague();
     return () => controller.abort();
   }, [selectedLeagueId, leagueAttempt]);
+
+  useEffect(() => {
+    if (!selectedLeagueId || !league) {
+      return undefined;
+    }
+
+    const playerIds = Array.from(new Set(
+      league.rosters.flatMap((roster) =>
+        (roster.players ?? [])
+          .filter((player) => player.player_id !== null && player.player_id !== undefined)
+          .map((player) => String(player.player_id).trim())
+          .filter(Boolean)
+      )
+    ));
+    if (playerIds.length === 0) {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+
+    async function loadLeagueScores() {
+      try {
+        const batches = [];
+        for (let index = 0; index < playerIds.length; index += 80) {
+          batches.push(playerIds.slice(index, index + 80));
+        }
+
+        const scoreLists = await Promise.all(
+          batches.map((ids) => {
+            const params = new URLSearchParams({
+              ids: ids.join(","),
+              isDynasty: isDynasty ? "true" : "false",
+              numQbs: String(numQbs),
+              numTeams: String(numTeams),
+              ppr: String(ppr),
+            });
+            return fetchJson(
+              `/api/trade-evaluation/players?${params.toString()}`,
+              { signal: controller.signal }
+            );
+          })
+        );
+
+        if (scoreLists.some((list) => !Array.isArray(list))) {
+          throw new Error("The server did not return valid player trade scores.");
+        }
+
+        if (!controller.signal.aborted) {
+          const scores = {};
+          scoreLists.flat().forEach((player) => {
+            if (player.player_id && Number.isFinite(Number(player.value))) {
+              scores[String(player.player_id)] = Number(player.value);
+            }
+          });
+          setLeaguePlayerScores(scores);
+          setLeaguePlayerScoresKey(leagueScoreKey);
+          setLeagueScoreError(null);
+        }
+      } catch (requestError) {
+        if (!controller.signal.aborted) {
+          setLeagueScoreError({
+            key: leagueScoreKey,
+            message: requestError.message,
+          });
+        }
+      }
+    }
+
+    loadLeagueScores();
+    return () => controller.abort();
+  }, [selectedLeagueId, league, isDynasty, numQbs, numTeams, ppr, leagueScoreKey]);
 
   // Load top popular players matching selected settings
   useEffect(() => {
@@ -527,6 +639,11 @@ export default function TradeEvaluation() {
     setGive([]);
     setReceive([]);
     setLeagueError("");
+    setSelectedPositions([]);
+    setReceivePlayerView("teams");
+    setLeaguePlayerScores({});
+    setLeaguePlayerScoresKey("");
+    setLeagueScoreError(null);
     clearResult();
   }
 
@@ -534,7 +651,17 @@ export default function TradeEvaluation() {
     setSelectedRosterId(rosterId);
     setGive([]);
     setReceive([]);
+    setSelectedPositions([]);
+    setReceivePlayerView("teams");
     clearResult();
+  }
+
+  function togglePosition(position) {
+    setSelectedPositions((current) =>
+      current.includes(position)
+        ? current.filter((item) => item !== position)
+        : [...current, position]
+    );
   }
 
   function retryLeagueLoad() {
@@ -552,6 +679,9 @@ export default function TradeEvaluation() {
     name: player.full_name || player.name,
     position: player.position,
     team: player.team,
+    value: leaguePlayerScoresKey === leagueScoreKey
+      ? leaguePlayerScores[String(player.player_id)] ?? 0
+      : 0,
     roster_id: String(roster.roster_id),
     roster_name: roster.team_name || `Team ${roster.roster_id}`,
     owner_name: roster.owner_name || "Unknown owner",
@@ -684,9 +814,57 @@ export default function TradeEvaluation() {
               <p className="muted">This league has no rosters to analyze.</p>
             )}
             {selectedRosterId && (
-              <p className="muted" role="status">
-                Choose players from the roster options below. Players are added only when you select + Add.
-              </p>
+              <>
+                <p className="muted" role="status">
+                  Choose players from the roster options below. Players are added only when you select + Add.
+                </p>
+                <div className="trade-league-player-controls">
+                  <fieldset className="trade-position-filter">
+                    <legend>Positions to trade for</legend>
+                    <p className="muted">Leave all positions unchecked to show everyone.</p>
+                    <div className="trade-position-options">
+                      {TRADE_POSITIONS.map((position) => (
+                        <label key={position}>
+                          <input
+                            type="checkbox"
+                            checked={selectedPositions.includes(position)}
+                            onChange={() => togglePosition(position)}
+                          />
+                          {position}
+                        </label>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      disabled={selectedPositions.length === 0}
+                      onClick={() => setSelectedPositions([])}
+                    >
+                      Clear positions
+                    </button>
+                  </fieldset>
+
+                  <div className="field">
+                    <label htmlFor="receive-player-view">I Receive player view</label>
+                    <Select
+                      id="receive-player-view"
+                      value={receivePlayerView}
+                      onChange={setReceivePlayerView}
+                    >
+                      <SelectItem value="ranked">All players ranked by trade score</SelectItem>
+                      <SelectItem value="teams">Dropdowns for each team</SelectItem>
+                    </Select>
+                  </div>
+                </div>
+                {leagueScoreLoading && (
+                  <p className="muted" role="status">Loading trade scores…</p>
+                )}
+                {activeLeagueScoreError && (
+                  <p className="error-message" role="alert">
+                    Could not load player trade scores: {activeLeagueScoreError}
+                  </p>
+                )}
+              </>
             )}
           </>
         ) : (
@@ -829,6 +1007,7 @@ export default function TradeEvaluation() {
             popularPlayers={popularPlayers}
             leaguePlayers={leagueGivePlayers}
             leagueAnalysisActive={Boolean(selectedLeagueId)}
+            playerViewMode={receivePlayerView}
             settings={{ isDynasty, numQbs, numTeams, ppr }}
             calcMode={calcMode}
             disabled={loading}
@@ -850,6 +1029,8 @@ export default function TradeEvaluation() {
             popularPlayers={popularPlayers}
             leaguePlayers={leagueReceivePlayers}
             leagueAnalysisActive={Boolean(selectedLeagueId)}
+            positionFilter={selectedPositions}
+            playerViewMode={receivePlayerView}
             settings={{ isDynasty, numQbs, numTeams, ppr }}
             calcMode={calcMode}
             disabled={loading}
