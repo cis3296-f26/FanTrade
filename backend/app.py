@@ -17,6 +17,7 @@ from sleeper_connection import (
     get_current_nfl_state,
     get_league_rosters,
     get_available_players,
+    get_sleeper_player_details,
     get_trending_players,
     get_nfl_team_roster,
     get_all_nfl_teams,
@@ -88,6 +89,16 @@ def sleeper_available_players(league_id):
             status = 503
         else:
             status = 502
+        return jsonify(result), status
+    return jsonify(result)
+
+
+@api.route("/sleeper/players/<player_id>/details")
+def sleeper_player_details(player_id):
+    result = get_sleeper_player_details(player_id)
+    if "error" in result:
+        message = result["error"].lower()
+        status = 503 if "unavailable" in message else 404
         return jsonify(result), status
     return jsonify(result)
 
