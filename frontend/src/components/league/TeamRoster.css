@@ -73,6 +73,7 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
+  flex: 1;
 }
 
 .search-app .player-avatar {
@@ -105,6 +106,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .search-app .player-meta {
@@ -126,6 +128,7 @@
   border-radius: 3px;
   background: rgba(61, 159, 151, 0.15);
   color: #3D9F97;
+  white-space: nowrap;
 }
 
 /* Injury & Health Badges */
@@ -135,6 +138,7 @@
   padding: 1px 5px;
   border-radius: 3px;
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .search-app .injury-badge.healthy {
@@ -187,5 +191,46 @@
   .search-app .roster-columns {
     grid-template-columns: 1fr;
     gap: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .search-app .player-scores {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .search-app .score-col {
+    min-width: 24px;
+  }
+
+  .search-app .score-val {
+    font-size: 12px;
+  }
+
+  .search-app .score-lbl {
+    font-size: 9px;
+  }
+
+  .search-app .player-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .search-app .score-col.muted-score {
+    display: none;
+  }
+
+  .search-app .player-row {
+    gap: 8px;
+  }
+
+  .search-app .roster-details {
+    padding: 0 12px 16px;
+  }
+
+  .search-app .matchup-badge,
+  .search-app .injury-badge {
+    display: none;
   }
 }
