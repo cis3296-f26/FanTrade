@@ -21,6 +21,33 @@ function formatRank(value) {
   return Number.isInteger(rank) && rank > 0 ? `#${rank}` : "—";
 }
 
+function PlayerAvatar({ player, className }) {
+  const [failedUrl, setFailedUrl] = useState(null);
+  const avatarUrl = player?.avatar_url;
+  const showImage = Boolean(avatarUrl && failedUrl !== avatarUrl);
+
+  const initials = (player?.name || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2);
+
+  return (
+    <span className={className} aria-hidden="true">
+      {showImage ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          onError={() => setFailedUrl(avatarUrl)}
+        />
+      ) : (
+        <span>{initials}</span>
+      )}
+    </span>
+  );
+}
+
 export default function AvailablePlayersPage() {
   const { savedLeagues } = useAuth();
   const [searchParams] = useSearchParams();
@@ -44,12 +71,12 @@ export default function AvailablePlayersPage() {
   const [trendType, setTrendType] = useState("add");
   const [lookbackHours, setLookbackHours] = useState("24");
   const [trendingPlayers, setTrendingPlayers] = useState([]);
-  const [selectedTrendingPlayer, setSelectedTrendingPlayer] = useState(null);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [selectedPlayerContext, setSelectedPlayerContext] = useState("");
   const [playerDetails, setPlayerDetails] = useState(null);
   const [loadingPlayerDetails, setLoadingPlayerDetails] = useState(false);
   const [playerDetailsError, setPlayerDetailsError] = useState("");
   const [playerDetailsAttempt, setPlayerDetailsAttempt] = useState(0);
-  const [failedPlayerImageId, setFailedPlayerImageId] = useState(null);
   const [loadingLeagues, setLoadingLeagues] = useState(false);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [loadingTrending, setLoadingTrending] = useState(false);
@@ -65,21 +92,21 @@ export default function AvailablePlayersPage() {
     const dialog = playerDialogRef.current;
     if (!dialog) return;
 
-    if (selectedTrendingPlayer && !dialog.open) {
+    if (selectedPlayer && !dialog.open) {
       dialog.showModal();
-    } else if (!selectedTrendingPlayer && dialog.open) {
+    } else if (!selectedPlayer && dialog.open) {
       dialog.close();
     }
-  }, [selectedTrendingPlayer]);
+  }, [selectedPlayer]);
 
   useEffect(() => {
-    if (!selectedTrendingPlayer) return undefined;
+    if (!selectedPlayer || selectedPlayerContext !== "trending") return undefined;
 
     const controller = new AbortController();
     async function loadPlayerDetails() {
       try {
         const data = await fetchJson(
-          `/api/sleeper/players/${encodeURIComponent(selectedTrendingPlayer.player_id)}/details`,
+          `/api/sleeper/players/${encodeURIComponent(selectedPlayer.player_id)}/details`,
           { signal: controller.signal }
         );
         if (!controller.signal.aborted) setPlayerDetails(data);
@@ -92,7 +119,7 @@ export default function AvailablePlayersPage() {
 
     loadPlayerDetails();
     return () => controller.abort();
-  }, [selectedTrendingPlayer, playerDetailsAttempt]);
+  }, [selectedPlayer, selectedPlayerContext, playerDetailsAttempt]);
 
   const selectedLeague =
     leagues.find((league) => league.league_id === leagueId) ||
@@ -244,12 +271,15 @@ export default function AvailablePlayersPage() {
     return () => controller.abort();
   }, [activeTab, trendType, lookbackHours, trendingAttempt]);
 
-  function openPlayerDetails(player) {
-    setSelectedTrendingPlayer(player);
+  function openPlayerDetails(player, context) {
+    setSelectedPlayer(player);
+    setSelectedPlayerContext(context);
     setPlayerDetails(null);
     setPlayerDetailsError("");
-    setLoadingPlayerDetails(true);
-    setPlayerDetailsAttempt((current) => current + 1);
+    setLoadingPlayerDetails(context === "trending");
+    if (context === "trending") {
+      setPlayerDetailsAttempt((current) => current + 1);
+    }
   }
 
   return (
@@ -441,28 +471,41 @@ export default function AvailablePlayersPage() {
                   ) : (
                     <div className="available-player-grid">
                       {visiblePlayers.map((player, index) => (
-                        <article className="available-player-card" key={player.player_id}>
-                          <span className="available-player-rank" aria-label={`Rank ${index + 1}`}>
-                            {index + 1}
-                          </span>
-                          <div>
-                            <h2>{player.name}</h2>
-                            <p>
+                        <button
+                          className="available-player-card available-player-card-button"
+                          key={player.player_id}
+                          type="button"
+                          aria-label={`Rank ${index + 1}: view ${player.name} photo and details`}
+                          onClick={() => openPlayerDetails(player, "available")}
+                        >
+                          <PlayerAvatar
+                            player={player}
+                            className="available-player-avatar"
+                          />
+                          <span className="available-player-identity">
+                            <span
+                              className="available-player-name"
+                              role="heading"
+                              aria-level="2"
+                            >
+                              {player.name}
+                            </span>
+                            <span className="available-player-meta">
                               {player.position} <span aria-hidden="true">·</span>{" "}
                               {player.team}
                               {player.age ? ` · Age ${player.age}` : ""}
-                            </p>
+                            </span>
                             {isEspn && (
-                              <p>
+                              <span className="available-player-meta">
                                 {player.availability === "WAIVERS" ? "On waivers" : "Free agent"}
                                 {player.waiver_process_date
                                   ? ` · Clears ${new Date(player.waiver_process_date).toLocaleString([], {
                                       month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
                                     })}`
                                   : ""}
-                              </p>
+                              </span>
                             )}
-                          </div>
+                          </span>
                           <span className="available-player-points">
                             {isEspn && typeof player.percent_rostered === "number"
                               ? `${formatPoints(player.percent_rostered)}%`
@@ -474,7 +517,7 @@ export default function AvailablePlayersPage() {
                               {player.injury_status}
                             </span>
                           )}
-                        </article>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -545,16 +588,19 @@ export default function AvailablePlayersPage() {
                         className="available-player-card trending-player-card"
                         key={player.player_id}
                         type="button"
-                        aria-label={`View ${player.name} details`}
-                        onClick={() => openPlayerDetails(player)}
+                        aria-label={`Rank ${index + 1}: view ${player.name} details`}
+                        onClick={() => openPlayerDetails(player, "trending")}
                       >
-                        <span className="available-player-rank" aria-label={`Rank ${index + 1}`}>
-                          {index + 1}
-                        </span>
-                        <div>
+                        <PlayerAvatar
+                          player={player}
+                          className="available-player-avatar trending-player-avatar"
+                        />
+                        <span className="available-player-identity">
                           <span className="available-player-name">{player.name}</span>
-                          <p>{player.position} <span aria-hidden="true">·</span> {player.team}</p>
-                        </div>
+                          <span className="available-player-meta">
+                            {player.position} <span aria-hidden="true">·</span> {player.team}
+                          </span>
+                        </span>
                         <span className={`trending-count trending-count-${trendType}`}>
                           {player.count}
                           <small>{trendType === "add" ? "adds" : "drops"}</small>
@@ -573,15 +619,15 @@ export default function AvailablePlayersPage() {
       <dialog
         ref={playerDialogRef}
         className="trending-player-dialog"
-        aria-labelledby="trending-player-dialog-title"
-        onClose={() => setSelectedTrendingPlayer(null)}
+        aria-labelledby="player-dialog-title"
+        onClose={() => setSelectedPlayer(null)}
         onClick={(event) => {
           if (event.target === event.currentTarget) {
             event.currentTarget.close();
           }
         }}
       >
-        {selectedTrendingPlayer && (
+        {selectedPlayer && (
           <div className="trending-player-dialog-content">
             <button
               className="trending-player-dialog-close"
@@ -591,47 +637,65 @@ export default function AvailablePlayersPage() {
             >
               ×
             </button>
-            <div className="trending-player-dialog-photo">
-              {failedPlayerImageId !== selectedTrendingPlayer.player_id &&
-                selectedTrendingPlayer.avatar_url && (
-                  <img
-                    src={selectedTrendingPlayer.avatar_url}
-                    alt={`${selectedTrendingPlayer.name} headshot`}
-                    onError={() => setFailedPlayerImageId(selectedTrendingPlayer.player_id)}
-                  />
-                )}
-              {failedPlayerImageId === selectedTrendingPlayer.player_id ||
-              !selectedTrendingPlayer.avatar_url ? (
-                <span aria-hidden="true">
-                  {selectedTrendingPlayer.name
-                    .split(/\s+/)
-                    .map((part) => part[0])
-                    .join("")
-                    .slice(0, 2)}
-                </span>
-              ) : null}
-            </div>
+            <PlayerAvatar
+              player={selectedPlayer}
+              className="trending-player-dialog-photo"
+            />
             <div className="trending-player-dialog-details">
-              <p className="trending-player-dialog-label">Player profile</p>
-              <h2 id="trending-player-dialog-title">{selectedTrendingPlayer.name}</h2>
+              <p className="trending-player-dialog-label">
+                {selectedPlayerContext === "trending" ? "Player profile" : "Available player"}
+              </p>
+              <h2 id="player-dialog-title">{selectedPlayer.name}</h2>
               <p className="trending-player-dialog-meta">
-                {selectedTrendingPlayer.position}
+                {selectedPlayer.position}
                 <span aria-hidden="true"> · </span>
-                {selectedTrendingPlayer.team}
+                {selectedPlayer.team}
+                {selectedPlayer.age ? ` · Age ${selectedPlayer.age}` : ""}
               </p>
-              <p className="trending-player-dialog-activity">
-                Trending {trendType === "add" ? "adds" : "drops"}
-                <strong>{selectedTrendingPlayer.count}</strong>
-              </p>
+              {selectedPlayerContext === "trending" ? (
+                <p className="trending-player-dialog-activity">
+                  Trending {trendType === "add" ? "adds" : "drops"}
+                  <strong>{selectedPlayer.count}</strong>
+                </p>
+              ) : isEspn ? (
+                <>
+                  <p className="trending-player-dialog-activity">
+                    Rostered
+                    <strong>
+                      {typeof selectedPlayer.percent_rostered === "number"
+                        ? `${formatPoints(selectedPlayer.percent_rostered)}%`
+                        : "—"}
+                    </strong>
+                  </p>
+                  {selectedPlayer.availability && (
+                    <p className="trending-player-dialog-activity">
+                      Status
+                      <strong>
+                        {selectedPlayer.availability === "WAIVERS" ? "On waivers" : "Free agent"}
+                        {selectedPlayer.waiver_process_date
+                          ? ` · Clears ${new Date(selectedPlayer.waiver_process_date).toLocaleString([], {
+                              month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                            })}`
+                          : ""}
+                      </strong>
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="trending-player-dialog-activity">
+                  Expected points
+                  <strong>{formatPoints(selectedPlayer.expected_points)} pts</strong>
+                </p>
+              )}
             </div>
           </div>
         )}
-        {loadingPlayerDetails && (
+        {selectedPlayerContext === "trending" && loadingPlayerDetails && (
           <p className="trending-player-details-status" role="status">
             Loading player stats from Sleeper...
           </p>
         )}
-        {playerDetailsError && (
+        {selectedPlayerContext === "trending" && playerDetailsError && (
           <div className="trending-player-details-error">
             <p role="alert">{playerDetailsError}</p>
             <button
@@ -646,7 +710,7 @@ export default function AvailablePlayersPage() {
             </button>
           </div>
         )}
-        {playerDetails && (
+        {selectedPlayerContext === "trending" && playerDetails && (
           <div className="trending-player-stats">
             <div className="trending-player-stat-grid">
               <div className="trending-player-stat">
