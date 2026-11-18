@@ -1,4 +1,5 @@
 import datetime
+import json
 import re
 from collections import defaultdict
 from unicodedata import normalize
@@ -19,6 +20,15 @@ ESPN_POSITION_MAP = {
     16: "DEF"
 }
 
+
+ESPN_PRO_TEAMS = {
+    1: "ATL", 2: "BUF", 3: "CHI", 4: "CIN", 5: "CLE", 6: "DAL", 7: "DEN",
+    8: "DET", 9: "GB", 10: "TEN", 11: "IND", 12: "KC", 13: "LV", 14: "LAR",
+    15: "MIA", 16: "MIN", 17: "NE", 18: "NO", 19: "NYG", 20: "NYJ", 21: "PHI",
+    22: "ARI", 23: "PIT", 24: "LAC", 25: "SF", 26: "SEA", 27: "TB", 28: "WAS",
+    29: "CAR", 30: "JAX", 33: "BAL", 34: "HOU",
+}
+ESPN_AVAILABLE_STATUSES = ("FREEAGENT", "WAIVERS")
 
 ESPN_LINEUP_SLOTS = {
     "0": "QB", "2": "RB", "3": "WRRB_FLEX", "4": "WR", "5": "REC_FLEX",
@@ -166,6 +176,57 @@ def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = No
             "scoring_items": (settings.get("scoringSettings") or {}).get("scoringItems"),
         },
     }
+
+
+def get_espn_available_players(league_id, season):
+    """Return ESPN's current league-specific free agents and waiver claims pool."""
+    if not league_id.isascii() or not league_id.isdecimal():
+        return {"error": "Enter a numeric ESPN league ID.", "status_code": 400}
+
+    filters = {"players": {
+        "filterStatus": {"value": list(ESPN_AVAILABLE_STATUSES)},
+        "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
+        "limit": 2000,
+    }}
+    try:
+        response = requests.get(
+            ESPN_BASE_URL.format(season=season, league_id=league_id),
+            params={"view": "kona_player_info"},
+            headers={"Accept": "application/json", "X-Fantasy-Filter": json.dumps(filters)},
+            timeout=15,
+        )
+        if response.status_code in (401, 403, 404):
+            return {
+                "error": "Could not open the ESPN player pool. Check the season and league's public viewability.",
+                "status_code": response.status_code,
+            }
+        response.raise_for_status()
+        data = response.json()
+    except (requests.RequestException, ValueError):
+        return {"error": "Could not load available players from ESPN. Try again.", "status_code": 502}
+
+    if not isinstance(data, dict) or not isinstance(data.get("players"), list):
+        return {"error": "ESPN did not return an available-player list.", "status_code": 502}
+
+    players = []
+    for entry in data["players"]:
+        status = entry.get("status")
+        player = entry.get("player") or {}
+        position = ESPN_POSITION_MAP.get(player.get("defaultPositionId"))
+        player_id = entry.get("id")
+        if status not in ESPN_AVAILABLE_STATUSES or not position or not player_id:
+            continue
+        players.append({
+            "player_id": str(player_id),
+            "name": player.get("fullName") or f"Player {player_id}",
+            "position": position,
+            "team": ESPN_PRO_TEAMS.get(player.get("proTeamId"), "FA"),
+            "injury_status": (player.get("injuryStatus") or "Healthy").replace("ACTIVE", "Healthy"),
+            "availability": status,
+            "waiver_process_date": entry.get("waiverProcessDate") if status == "WAIVERS" else None,
+            "percent_rostered": (player.get("ownership") or {}).get("percentOwned"),
+        })
+    return {"league_id": league_id, "season": season, "players": players}
 
 
 def _player_name_key(name):

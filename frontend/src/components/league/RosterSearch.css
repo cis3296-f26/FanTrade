@@ -11,6 +11,10 @@
   margin: 20px 0 12px;
 }
 
+.search-app .espn-league-actions {
+  flex-wrap: wrap;
+}
+
 .search-app .team-list {
   display: flex;
   flex-direction: column;

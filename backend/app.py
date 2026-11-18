@@ -23,7 +23,9 @@ from sleeper_connection import (
     get_all_nfl_teams,
     search_nfl_players,
 )
-from espn_connection import espn_suggestion_league, espn_trade_rosters, get_espn_league
+from espn_connection import (
+    espn_suggestion_league, espn_trade_rosters, get_espn_available_players, get_espn_league,
+)
 from nfl_pbp_connection import get_play_by_play_data, get_summary_stats
 
 from db import get_db
@@ -141,6 +143,17 @@ def espn_demo(league_id=None):
     response = jsonify(result)
     response.headers["Cache-Control"] = "no-store"
     return response, result.get("status_code", 502) if "error" in result else 200
+
+
+@api.route("/espn/available-players/<league_id>")
+def espn_available_players(league_id):
+    season = request.args.get("season", type=int)
+    if season is None or not 1999 <= season <= date.today().year:
+        return jsonify({"error": "Choose a valid ESPN season."}), 400
+    result = get_espn_available_players(league_id, season)
+    response = jsonify(result)
+    response.headers["Cache-Control"] = "no-store"
+    return response, result.get("status_code", 200)
 
 
 @api.route("/nfl/teams")

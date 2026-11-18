@@ -130,13 +130,16 @@ export default function RosterSearch({ leagueId, platform = "sleeper", onSave, i
       </p>
 
       {isEspn && (
-        <div className="search-controls">
+        <div className="search-controls espn-league-actions">
           <button type="button" className="btn btn-secondary"
             onClick={() => setAttempt((current) => current + 1)}>
             Refresh rosters
           </button>
           <Link className="btn btn-secondary" to={`/trade?espn=${encodeURIComponent(leagueId)}`}>
             Open in Trade Calculator
+          </Link>
+          <Link className="btn btn-secondary" to={`/available-players?espn=${encodeURIComponent(leagueId)}`}>
+            View available players
           </Link>
           {onSave && (
             <button type="button" className="btn btn-secondary"
