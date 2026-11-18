@@ -1,3 +1,5 @@
+import TradeRosterMoves from "./TradeRosterMoves";
+
 const DEFAULT_AVATAR = "https://sleepercdn.com/images/v2/icons/player_default.webp";
 
 // Keep the result separate so the panel can focus on selections and requests.
@@ -6,17 +8,22 @@ export default function TradeSuggestionResult({ result }) {
   const suggestion = result.suggestion;
   const evaluation = suggestion?.evaluation;
 
-  const totalSum = (evaluation?.give_total || 0) + (evaluation?.receive_total || 0);
-  const givePercent = totalSum > 0 ? Math.round(((evaluation?.give_total || 0) / totalSum) * 100) : 50;
+  // Keep actual trade packages separate from the extra cost of required cuts.
+  const dropValue = suggestion?.roster_moves?.you?.drop_value || 0;
+  const totalCost = (evaluation?.give_total || 0) + dropValue;
+  const netGain = suggestion?.net_value_gain ?? evaluation?.difference ?? 0;
+  const netPercent = suggestion?.net_advantage_percent ?? evaluation?.diff_percentage;
+  const totalSum = totalCost + (evaluation?.receive_total || 0);
+  const givePercent = totalSum > 0 ? Math.round((totalCost / totalSum) * 100) : 50;
   const receivePercent = 100 - givePercent;
-  const isPositive = (evaluation?.difference || 0) >= 0;
+  const isPositive = netGain >= 0;
 
   return (
     <section className="trade-suggestion-result" aria-label="Trade suggestion result" aria-live="polite">
       {/* A completed search with no match is different from a failed request. */}
       {result.status === "no_match" ? (
         <div className="suggestion-no-match-box">
-          <span className="no-match-pill">No Match Found</span>
+          <span className="no-match-pill">{result.search_limited ? "Search limit reached" : "No Match Found"}</span>
           <p className="no-match-message">{result.message}</p>
         </div>
       ) : evaluation ? (
@@ -24,18 +31,19 @@ export default function TradeSuggestionResult({ result }) {
           {/* Header verdict badge & target upgrade title */}
           <div className="outcome-header-card">
             <div className="outcome-verdict-row">
-              <span className={`verdict-pill ${isPositive ? "verdict-win" : "verdict-fair"}`}>
+              <span className={`verdict-pill ${isPositive ? "verdict-win" : "verdict-fair"}`} title="Consensus verdict for the exchanged packages, before roster cuts">
                 {evaluation.trade_label || (isPositive ? "Winning Trade" : "Fair Trade")}
               </span>
-              {evaluation.diff_percentage !== undefined && (
+              {netPercent !== undefined && (
                 <span className="advantage-pill">
-                  {isPositive ? `+${evaluation.diff_percentage}%` : `${evaluation.diff_percentage}%`}
+                  {isPositive ? "+" : ""}{netPercent}% net advantage
                 </span>
               )}
             </div>
             <h4 className="outcome-target-heading">
-              Upgrade at {suggestion.target_position}
+              {suggestion.trade_style === "add_depth" ? "Add depth at" : "Upgrade at"} {suggestion.target_position}
             </h4>
+            <p className="trade-result-format">{suggestion.trade_type || `${evaluation.give.length}-for-${evaluation.receive.length}`} · You give {evaluation.give.length}, receive {evaluation.receive.length}</p>
           </div>
 
           {/* Show both packages vertically with player photos so they fit cleanly in the sidebar. */}
@@ -115,9 +123,9 @@ export default function TradeSuggestionResult({ result }) {
           {/* Visual trade balance meter comparing market value between packages */}
           <div className="trade-balance-card">
             <div className="balance-metrics">
-              <span className="metric-give">Give: {evaluation.give_total.toLocaleString()}</span>
+              <span className="metric-give">{dropValue ? "Give + cuts" : "Give"}: {totalCost.toLocaleString()}</span>
               <span className="metric-gain">
-                {isPositive ? `+${evaluation.difference.toLocaleString()}` : evaluation.difference.toLocaleString()} pts
+                {isPositive ? "+" : ""}{netGain.toLocaleString()} net value
               </span>
               <span className="metric-receive">Get: {evaluation.receive_total.toLocaleString()}</span>
             </div>
@@ -125,7 +133,7 @@ export default function TradeSuggestionResult({ result }) {
               <div
                 className="balance-fill-give"
                 style={{ width: `${givePercent}%` }}
-                title={`You Give: ${givePercent}%`}
+                title={`Your cost: ${givePercent}%`}
               />
               <div
                 className="balance-fill-receive"
@@ -135,13 +143,18 @@ export default function TradeSuggestionResult({ result }) {
             </div>
           </div>
 
+          <TradeRosterMoves moves={suggestion.roster_moves} />
+          {suggestion.your_lineup_value_gain < 0 && (
+            <p className="trade-lineup-change">Your projected starting-lineup value decreases by {Math.abs(suggestion.your_lineup_value_gain).toLocaleString()} in this depth trade.</p>
+          )}
+
           {/* Use the backend's verdict and reasons instead of recalculating them here. */}
           <div className="suggestion-reasons-card">
             <span className="reasons-heading">Trade Highlights</span>
             <ul className="suggestion-reasons-list">
               {suggestion.reasons.map((reason) => (
                 <li key={reason} className="reason-item">
-                  <span className="reason-bullet">✓</span>
+                  <span className="reason-bullet" aria-hidden="true">•</span>
                   <span className="reason-text">{reason}</span>
                 </li>
               ))}

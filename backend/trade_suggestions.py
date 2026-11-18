@@ -1,25 +1,22 @@
-"""Find two-for-two trades using roster needs and shared market values."""
+"""Find trade suggestions and compatible partners using shared roster values."""
 
-from bisect import bisect_left
-from collections import Counter
-from functools import lru_cache
-from itertools import combinations
 import math
 
-from fancalc_connection import build_player_value_lookup, evaluate_player_values
+from fancalc_connection import evaluate_player_values
+from trade_analysis import (
+    POSITIONS, FLEX_POSITIONS, SLOT_POSITIONS, analyze_roster,
+    analyze_team_positional_needs, extract_valued_players_for_roster,
+    league_trade_settings, rank_target_positions,
+)
 
-POSITIONS = ("QB", "RB", "WR", "TE")
-FLEX_POSITIONS = ("RB", "WR", "TE")
-SLOT_POSITIONS = {
-    **{position: (position,) for position in POSITIONS},
-    "FLEX": FLEX_POSITIONS,
-    "SUPER_FLEX": POSITIONS,
-    "REC_FLEX": ("WR", "TE"),
-    "WRRB_FLEX": ("WR", "RB"),
-}
-MIN_GAIN_PERCENT = 2
-MAX_GAIN_PERCENT = 8
-MAX_LINEUP_CHECKS = 2500
+from trade_preferences import TradePreferences
+from trade_search import LeagueTradeContext, search_packages
+
+MAX_CANDIDATE_PAIRS = 25000
+MAX_LINEUP_CHECKS = 900
+PARTNER_PREVIEW_PAGE_SIZE = 3
+MAX_PARTNER_CANDIDATE_PAIRS = 25000
+MAX_PARTNER_LINEUP_CHECKS = 900
 
 
 def validate_suggestion_request(data):
@@ -40,9 +37,9 @@ def validate_suggestion_request(data):
     if ids[0] == ids[1]:
         raise ValueError("Choose two different teams.")
     position = data.get("position", "ANY")
-    if not isinstance(position, str) or position not in (*POSITIONS, "ANY", "FLEX"):
+    if not isinstance(position, str) or position.upper() not in (*POSITIONS, "ANY", "FLEX"):
         raise ValueError("Choose Any, QB, RB, WR, TE, or FLEX.")
-    return league_id.strip(), ids[0], ids[1], position
+    return league_id.strip(), ids[0], ids[1], position.upper()
 
 
 def validate_compatible_partners_request(data):
@@ -59,394 +56,78 @@ def validate_compatible_partners_request(data):
         raise ValueError("Choose a valid team.")
     position = data.get("position", "ANY")
     if not isinstance(position, str) or position.upper() not in POSITIONS + ("ANY", "FLEX"):
-        position = "ANY"
-    else:
-        position = position.upper()
-    return league_id.strip(), int(your_id), position
+        raise ValueError("Choose Any, QB, RB, WR, TE, or FLEX.")
+    return league_id.strip(), int(your_id), position.upper()
 
 
-def league_trade_settings(league):
-    """Map supported league rules to FantasyCalc's available settings."""
-    raw_slots = league.get("roster_positions") or []
-    # Kicker, defense, and bench slots never participate in suggestion analysis.
-    slots = [slot for slot in raw_slots if slot not in ("BN", "K", "DEF")]
-    if not slots or len(slots) > 12 or any(slot not in SLOT_POSITIONS for slot in slots):
-        raise ValueError("This league's starting lineup format is not supported yet.")
-    settings = league.get("settings") or {}
-    league_type = settings.get("type")
-    if league_type not in (0, 2):
-        raise ValueError("Suggestions currently support redraft and dynasty leagues.")
-    teams = settings.get("num_teams", league.get("total_rosters"))
-    ppr = (league.get("scoring_settings") or {}).get("rec", 0)
-    qb_slots = slots.count("QB") + slots.count("SUPER_FLEX")
-    if teams not in (8, 10, 12, 14) or ppr not in (0, 0.5, 1) or qb_slots not in (1, 2):
-        raise ValueError("This league's size, PPR scoring, or QB format is not supported yet.")
-    return slots, {
-        "is_dynasty": league_type == 2, "num_qbs": qb_slots,
-        "num_teams": teams, "ppr": ppr,
-    }
+def within_value_range(give_total, receive_total, preferences=None, drop_total=0):
+    """Apply the same net-value rules used by the search preferences."""
+    return (preferences or TradePreferences()).accepts_value(give_total, receive_total, drop_total)
 
 
-def analyze_roster(players, slots):
-    """Find the highest-value eligible lineup, counting each player only once."""
-    groups = {
-        pos: sorted((p for p in players if p["position"] == pos),
-                    key=lambda p: (-p["value"], p["player_id"]))
-        for pos in POSITIONS
-    }
-    # Fill restrictive slots first. Explore flex choices instead of greedily
-    # using a player who may be needed in another slot.
-    ordered_slots = sorted(slots, key=lambda slot: len(SLOT_POSITIONS[slot]))
-
-    @lru_cache(maxsize=None)
-    def fill(index, counts):
-        if index == len(ordered_slots):
-            return 0, 0, ()
-        slot = ordered_slots[index]
-        filled, value, lineup = fill(index + 1, counts)
-        best = filled, value, ((slot, None),) + lineup
-        for pos in SLOT_POSITIONS[slot]:
-            pos_index = POSITIONS.index(pos)
-            used = counts[pos_index]
-            if used >= len(groups[pos]):
-                continue
-            player = groups[pos][used]
-            next_counts = list(counts)
-            next_counts[pos_index] += 1
-            filled, value, lineup = fill(index + 1, tuple(next_counts))
-            candidate = filled + 1, value + player["value"], ((slot, player["player_id"]),) + lineup
-            if candidate[:2] > best[:2]:
-                best = candidate
-        return best
-
-    filled, total, lineup = fill(0, (0, 0, 0, 0))
-    by_id = {p["player_id"]: p for p in players}
-    starters = [{"slot": slot, "player": by_id.get(pid)} for slot, pid in lineup]
-    starter_ids = {pid for _, pid in lineup if pid is not None}
-    return {
-        "filled_slots": filled, "value": total, "starters": starters,
-        "depth": [p for p in players if p["player_id"] not in starter_ids],
-    }
-
-
-def rank_target_positions(analysis, requested, market_values):
-    """Compare starters within their own positions rather than comparing raw QB/TE values."""
-    allowed = POSITIONS if requested == "ANY" else FLEX_POSITIONS if requested == "FLEX" else (requested,)
-    needs = {pos: 1.0 for pos in allowed}
-    for starter in analysis["starters"]:
-        player = starter["player"]
-        eligible = SLOT_POSITIONS[starter["slot"]]
-        for pos in allowed:
-            if pos not in eligible or (player and player["position"] != pos):
-                continue
-            values = market_values.get(pos, [])
-            percentile = bisect_left(values, player["value"]) / len(values) if player and values else 0
-            needs[pos] = min(needs[pos], percentile)
-    return sorted(allowed, key=lambda pos: (needs[pos], POSITIONS.index(pos)))
-
-
-def within_value_range(give_total, receive_total):
-    # Use unrounded totals at the boundaries; rounding could admit a 1.96% gain.
-    larger = max(give_total, receive_total)
-    difference = receive_total - give_total
-    return larger > 0 and MIN_GAIN_PERCENT * larger <= difference * 100 <= MAX_GAIN_PERCENT * larger
-
-
-def generate_trade_suggestion(league, your_id, partner_id, requested, fc_data):
-    """Search a bounded set of packages and return a suggestion or a clear no-match result."""
-    if requested not in (*POSITIONS, "ANY", "FLEX") or your_id == partner_id:
+def generate_trade_suggestion(league, your_id, partner_id, requested, fc_data, preferences=None):
+    """Prepare two teams once, then search their permitted package sizes."""
+    preferences = preferences or TradePreferences()
+    if requested not in (*POSITIONS, "ANY", "FLEX") or str(your_id) == str(partner_id):
         raise ValueError("Choose two different teams and a supported position.")
-    slots, settings = league_trade_settings(league)
-    rosters = {str(r["roster_id"]): r for r in league.get("rosters", [])}
-    if str(your_id) not in rosters or str(partner_id) not in rosters:
-        raise ValueError("Both teams must belong to the selected league.")
-    selected = [rosters[str(your_id)], rosters[str(partner_id)]]
-    directory = {str(p["player_id"]): p for r in selected for p in r["players"]}
-    lookup = build_player_value_lookup(fc_data, directory)
-    warnings = []
-    teams = []
-    for roster in selected:
-        players, missing, seen = [], 0, set()
-        for player in roster["players"]:
-            if player.get("position") not in POSITIONS:
-                continue
-            pid = str(player["player_id"])
-            if pid in seen:
-                continue
-            seen.add(pid)
-            valued = lookup(pid)
-            if valued["unranked"] or not isinstance(valued["value"], (int, float)) or not math.isfinite(valued["value"]) or valued["value"] <= 0:
-                missing += 1
-                continue
-            # Slot eligibility comes from the actual roster, not a name fallback.
-            valued["position"] = player["position"]
-            players.append(valued)
-        if len(players) > 30:
-            raise ValueError("Suggestions currently support up to 30 valued offensive players per team.")
-        if missing:
-            warnings.append(f"{roster.get('team_name', 'A team')}: {missing} players lacked usable market values and were excluded.")
-        teams.append(sorted(players, key=lambda p: p["player_id"]))
-    yours, theirs = teams
-    if set(p["player_id"] for p in yours) & set(p["player_id"] for p in theirs):
+    context = LeagueTradeContext(league, fc_data)
+    return _generate_from_context(context, your_id, partner_id, requested, preferences,
+                                  MAX_CANDIDATE_PAIRS, MAX_LINEUP_CHECKS)
+
+
+def _generate_from_context(context, your_id, partner_id, requested, preferences, pair_budget, lineup_budget):
+    """Use the same engine and result format for previews and full searches."""
+    yours, theirs = context.team(your_id), context.team(partner_id)
+    if yours["active_ids"] & theirs["active_ids"]:
         raise ValueError("The teams contain overlapping players. Reload the league and try again.")
-    if not yours or not theirs:
-        raise RuntimeError("Not enough player valuation data is available for these teams.")
-
-    before = [analyze_roster(team, slots) for team in teams]
-    market = {pos: [] for pos in POSITIONS}
-    for item in fc_data:
-        pos = (item.get("player") or {}).get("position")
-        value = item.get("value")
-        if pos in market and isinstance(value, (int, float)) and math.isfinite(value) and value > 0:
-            market[pos].append(value)
-    for values in market.values():
-        values.sort()
-    targets = rank_target_positions(before[0], requested, market)
-    depth_ids = [{p["player_id"] for p in analysis["depth"]} for analysis in before]
-
-    # Enumerate packages first, then prioritize exchanges of spare depth. The
-    # cheap value check avoids rebuilding lineups for obviously unsuitable trades.
-    candidates = []
-    for give in combinations(yours, 2):
-        give_total = sum(p["value"] for p in give)
-        for receive in combinations(theirs, 2):
-            receive_total = sum(p["value"] for p in receive)
-            if not within_value_range(give_total, receive_total):
-                continue
-            positions = {p["position"] for p in receive}
-            target_rank = next((i for i, pos in enumerate(targets) if pos in positions), None)
-            if target_rank is None:
-                continue
-            depth = sum(p["player_id"] in depth_ids[0] for p in give) + sum(p["player_id"] in depth_ids[1] for p in receive)
-            candidates.append((target_rank, -depth, give, receive))
-    candidates.sort(key=lambda c: c[:2])
-    limited = len(candidates) > MAX_LINEUP_CHECKS
-    best = None
-    checked = 0
-    for _, _, give, receive in candidates[:MAX_LINEUP_CHECKS]:
-        checked += 1
-        give_ids = {p["player_id"] for p in give}
-        receive_ids = {p["player_id"] for p in receive}
-        after = [
-            analyze_roster([p for p in yours if p["player_id"] not in give_ids] + list(receive), slots),
-            analyze_roster([p for p in theirs if p["player_id"] not in receive_ids] + list(give), slots),
-        ]
-        gains = [after[i]["value"] - before[i]["value"] for i in range(2)]
-        # Both teams must gain starter value without leaving more slots empty.
-        if any(gains[i] <= 0 or after[i]["filled_slots"] < before[i]["filled_slots"] for i in range(2)):
-            continue
-        coverage_lost = False
-        for i in range(2):
-            old_coverage = Counter(s["slot"] for s in before[i]["starters"] if s["player"])
-            new_coverage = Counter(s["slot"] for s in after[i]["starters"] if s["player"])
-            if any(new_coverage[slot] < count for slot, count in old_coverage.items()):
-                coverage_lost = True
-        if coverage_lost:
-            continue
-        target = None
-        for pos in targets:
-            old_values = sorted((s["player"]["value"] for s in before[0]["starters"] if s["player"] and s["player"]["position"] == pos), reverse=True)
-            new_starters = [s["player"] for s in after[0]["starters"] if s["player"] and s["player"]["position"] == pos]
-            new_values = sorted((p["value"] for p in new_starters), reverse=True)
-            if any(p["player_id"] in receive_ids for p in new_starters) and sum(new_values) > sum(old_values):
-                target = pos
-                break
-        if target is None:
-            continue
-        # Prefer the highest-priority need, then benefits shared by both teams.
-        rank = (-targets.index(target), min(gains), sum(gains))
-        if best is None or rank > best[0]:
-            best = (rank, give, receive, target, gains)
-
-    if limited:
-        warnings.append("The search checked the highest-priority packages within its search limit.")
+    warnings = [f"{t['team_name']}: {t['missing']} players lacked usable market values and were excluded."
+                for t in (yours, theirs) if t["missing"]]
+    targets = context.targets(yours, requested)
+    best, diagnostics = search_packages(yours, theirs, context.slots, preferences, targets,
+                                        pair_budget, lineup_budget)
+    settings = context.settings
+    if diagnostics["search_limited"]:
+        warnings.append("The search checked a limited selection of packages across the allowed trade formats.")
     common = {
-        "warnings": warnings, "candidates_checked": checked, "search_limited": limited,
-        "value_range": {"min_percent": MIN_GAIN_PERCENT, "max_percent": MAX_GAIN_PERCENT},
+        **diagnostics, "warnings": warnings, "preferences": preferences.as_dict(),
+        "value_range": {"min_percent": preferences.min_gain_percent,
+                        "max_percent": preferences.max_gain_percent},
         "settings": settings,
     }
     if best is None:
         return {**common, "status": "no_match", "suggestion": None,
-                "message": "No suitable two-for-two trade was found among the evaluated packages. Try another team or position."}
-    _, give, receive, target, gains = best
-    evaluation = evaluate_player_values(list(give), list(receive), **settings)
+                "message": "No suitable trade was found among the evaluated packages. Try another team, position, trade style, or value range."}
+    give, receive = best["give"], best["receive"]
+    evaluation = evaluate_player_values(list(give.players), list(receive.players), **settings)
+    your_after, partner_after = best["your_after"], best["partner_after"]
+    cost = give.total + your_after["drop_value"]
+    net_gain = receive.total - cost
+    net_percent = round(net_gain / max(cost, receive.total) * 100, 1)
+    adding_depth = len(receive.players) > len(give.players)
+    style = "add_depth" if adding_depth else "trade_up" if len(give.players) > len(receive.players) else "balanced"
+    target = best["target"]
+    reasons = [
+        (f"You add starting options at {target}." if adding_depth else f"You upgrade a starting option at {target}."),
+        f"Your net value advantage is {net_percent}% after any required cuts.",
+    ]
+    if best["gains"][1] > 0:
+        reasons.append("Your trade partner also improves their projected starting-lineup value.")
+    elif best["gains"][1] < 0:
+        reasons.append("Your trade partner gives up starting-lineup value in this exchange.")
+    # Required counts are separate from suggested names: a user may choose different cuts.
+    moves = {}
+    for side, team, after in (("you", yours, your_after), ("partner", theirs, partner_after)):
+        moves[side] = {key: value for key, value in after.items() if key != "lineup"}
+        moves[side].update(roster_id=team["roster_id"], team_name=team["team_name"])
     return {**common, "status": "ok", "suggestion": {
-        "target_position": target, "evaluation": evaluation,
-        "your_lineup_value_gain": gains[0], "partner_lineup_value_gain": gains[1],
-        "reasons": [
-            f"You improve your starting {target} options while gaining {evaluation['diff_percentage']}% in trade value.",
-            "Your trade partner gains starting-lineup value by exchanging players they can replace.",
-        ],
+        "target_position": target, "trade_style": style,
+        "trade_type": f"{len(give.players)}-for-{len(receive.players)}",
+        "evaluation": evaluation, "net_value_gain": net_gain,
+        "net_advantage_percent": net_percent, "roster_moves": moves,
+        "your_lineup_value_gain": best["gains"][0], "partner_lineup_value_gain": best["gains"][1],
+        "reasons": reasons,
         "method_note": "Lineup improvements use FantasyCalc market values, not projected points. Injuries, bye weeks, and custom scoring bonuses are not modeled.",
     }}
-
-
-def extract_valued_players_for_roster(roster, lookup):
-    """Filter roster to supported offensive positions with verified positive market valuations."""
-    players = []
-    seen = set()
-    # Strip out defensive players, kickers, or unranked guys so we only evaluate real offensive assets
-    for player in roster.get("players", []):
-        if player.get("position") not in POSITIONS:
-            continue
-        pid = str(player.get("player_id", ""))
-        if not pid or pid in seen:
-            continue
-        seen.add(pid)
-        valued = lookup(pid)
-        if (
-            valued.get("unranked")
-            or not isinstance(valued.get("value"), (int, float))
-            or not math.isfinite(valued.get("value", 0))
-            or valued.get("value", 0) <= 0
-        ):
-            continue
-        v_copy = dict(valued)
-        v_copy["position"] = player.get("position", valued.get("position"))
-        v_copy["name"] = player.get("name", player.get("full_name", f"Player {pid}"))
-        players.append(v_copy)
-    return sorted(players, key=lambda p: p["player_id"])
-
-
-def analyze_team_positional_needs(players, slots):
-    """
-    Analyzes a team's positional roster composition, evaluating:
-    - starter counts, totals, and baseline starter levels
-    - bench depth and quality startable reserves
-    - within-starter dropoff (e.g. dropoff between RB1 and RB2)
-    - starter-to-bench dropoff (cliff dropoff to bench)
-    - surplus scores (0-100) indicating expendable depth
-    - need scores (0-100) indicating roster weakness or fragility
-    """
-    # Group optimal starters and bench players by position using the league's roster rules
-    lineup = analyze_roster(players, slots)
-    starters_by_pos = {pos: [] for pos in POSITIONS}
-    for item in lineup["starters"]:
-        p = item.get("player")
-        if p and p.get("position") in starters_by_pos:
-            starters_by_pos[p["position"]].append(p)
-
-    bench_by_pos = {pos: [] for pos in POSITIONS}
-    for p in lineup["depth"]:
-        if p and p.get("position") in bench_by_pos:
-            bench_by_pos[p["position"]].append(p)
-
-    required_counts = {pos: slots.count(pos) for pos in POSITIONS}
-
-    analysis = {}
-    for pos in POSITIONS:
-        starters = sorted(starters_by_pos[pos], key=lambda x: -x.get("value", 0))
-        bench = sorted(bench_by_pos[pos], key=lambda x: -x.get("value", 0))
-
-        starter_count = len(starters)
-        bench_count = len(bench)
-        total_count = starter_count + bench_count
-
-        starter_values = [p.get("value", 0) for p in starters]
-        bench_values = [p.get("value", 0) for p in bench]
-
-        starter_total = sum(starter_values)
-        starter_avg = round(starter_total / starter_count) if starter_count else 0
-        bench_total = sum(bench_values)
-
-        lowest_starter = starter_values[-1] if starter_values else 0
-        highest_bench = bench_values[0] if bench_values else 0
-
-        # Look at the dropoff between starters and bench. If their RB2 is a huge dropoff, they're hurting at RB.
-        within_starter_dropoff = (
-            (starter_values[0] - starter_values[-1])
-            if len(starter_values) >= 2
-            else 0
-        )
-        starter_to_bench_dropoff = (
-            (lowest_starter - highest_bench)
-            if (starter_values and bench_values)
-            else (lowest_starter if starter_values else 0)
-        )
-
-        # Quality startable bench depth (FantasyCalc value >= 1500)
-        quality_bench = [p for p in bench if p.get("value", 0) >= 1500]
-        quality_bench_count = len(quality_bench)
-        quality_bench_val = sum(p.get("value", 0) for p in quality_bench)
-
-        req = required_counts.get(pos, 1)
-
-        # Calculate surplus score based on quality bench players sitting out of the starting lineup
-        surplus = 0
-        if starter_count >= req and bench_count > 0:
-            surplus += quality_bench_count * 25
-            surplus += min(30, round(quality_bench_val / 300))
-            if highest_bench >= 3500:
-                surplus += 20
-            elif highest_bench >= 2500:
-                surplus += 10
-            if total_count > req + 1:
-                surplus += 15
-        surplus_score = max(0, min(100, surplus))
-
-        # Calculate need score based on weak starters, steep dropoffs, or zero startable depth
-        need = 0
-        if starter_count < req:
-            need = 95
-        else:
-            if starter_avg < 3000:
-                need += 35
-            elif starter_avg < 5000:
-                need += 20
-            elif starter_avg < 6500:
-                need += 10
-
-            if within_starter_dropoff > 4000 and lowest_starter < 3000:
-                need += 25
-            elif within_starter_dropoff > 2500 and lowest_starter < 4000:
-                need += 15
-
-            if bench_count == 0:
-                need += 20
-            elif quality_bench_count == 0 and req > 1:
-                need += 15
-            elif quality_bench_count == 0 and req == 1:
-                need += 5
-
-            if starter_to_bench_dropoff > 4500 and quality_bench_count == 0:
-                need += 15
-
-        need_score = max(0, min(100, need))
-
-        analysis[pos] = {
-            "position": pos,
-            "count": total_count,
-            "starter_count": starter_count,
-            "bench_count": bench_count,
-            "quality_bench_count": quality_bench_count,
-            "starter_total": starter_total,
-            "starter_avg": starter_avg,
-            "lowest_starter": lowest_starter,
-            "highest_bench": highest_bench,
-            "within_starter_dropoff": within_starter_dropoff,
-            "starter_to_bench_dropoff": starter_to_bench_dropoff,
-            "surplus_score": surplus_score,
-            "need_score": need_score,
-            "status": "balanced",
-        }
-
-    # Mark true surplus positions
-    for pos in POSITIONS:
-        if analysis[pos]["surplus_score"] >= 45 and analysis[pos]["surplus_score"] > analysis[pos]["need_score"] + 10:
-            analysis[pos]["status"] = "surplus"
-
-    # Only flag the top 1 or 2 most severe needs so we do not mark every position on a team as a need
-    need_candidates = [
-        pos for pos in POSITIONS
-        if analysis[pos]["status"] != "surplus"
-        and analysis[pos]["need_score"] >= 45
-        and analysis[pos]["need_score"] > analysis[pos]["surplus_score"] + 10
-    ]
-    need_candidates.sort(key=lambda p: -analysis[p]["need_score"])
-    for pos in need_candidates[:2]:
-        analysis[pos]["status"] = "need"
-
-    return analysis
 
 
 def calculate_pair_compatibility(y_needs, p_needs, requested_position="ANY"):
@@ -561,116 +242,104 @@ def calculate_pair_compatibility(y_needs, p_needs, requested_position="ANY"):
     }
 
 
-def find_compatible_trade_partners(league, your_id, fc_data, target_position="ANY"):
-    """
-    Scans every other team in the league against the user's team, evaluating
-    positional surplus, dropoff, and mutual trade compatibility.
-    """
-    slots, _ = league_trade_settings(league)
-    rosters = {str(r["roster_id"]): r for r in league.get("rosters", [])}
-    if str(your_id) not in rosters:
-        raise ValueError("Selected team must belong to the league.")
+def validate_verification_offset(data):
+    """Let expanded recommendations request the next small batch of previews."""
+    offset = data.get("verification_offset", 0)
+    if type(offset) is not int or not 0 <= offset <= 13:
+        raise ValueError("Choose a valid recommendation page.")
+    return offset
 
-    all_players = [p for r in league.get("rosters", []) for p in r.get("players", [])]
-    directory = {str(p["player_id"]): p for p in all_players}
-    lookup = build_player_value_lookup(fc_data, directory)
 
-    # First analyze the user's own team needs and surplus positions
-    your_roster = rosters[str(your_id)]
-    your_players = extract_valued_players_for_roster(your_roster, lookup)
-    your_needs = analyze_team_positional_needs(your_players, slots)
-
-    your_surplus = [pos for pos, data in your_needs.items() if data["status"] == "surplus"]
-    your_need_positions = [pos for pos, data in your_needs.items() if data["status"] == "need"]
-
-    # Now scan all other teams in the league and calculate mutual fit scores
+def find_compatible_trade_partners(league, your_id, fc_data, target_position="ANY",
+                                   preferences=None, verification_offset=0):
+    """Rank every partner, but verify only one bounded page of trade previews."""
+    preferences = preferences or TradePreferences()
+    if target_position not in (*POSITIONS, "ANY", "FLEX"):
+        raise ValueError("Choose Any, QB, RB, WR, TE, or FLEX.")
+    validate_verification_offset({"verification_offset": verification_offset})
+    context = LeagueTradeContext(league, fc_data)
+    yours = context.team(your_id)
+    your_needs = yours["needs"]
+    warnings = []
     partners = []
-    for r_id_str, partner_roster in rosters.items():
-        if r_id_str == str(your_id):
+    for roster_id, roster in context.rosters.items():
+        if roster_id == str(your_id):
             continue
-        p_id = int(r_id_str)
-        p_players = extract_valued_players_for_roster(partner_roster, lookup)
-        if not p_players:
-            continue
-        p_needs = analyze_team_positional_needs(p_players, slots)
-        comp = calculate_pair_compatibility(your_needs, p_needs, requested_position=target_position)
-
-        p_surplus = [pos for pos, data in p_needs.items() if data["status"] == "surplus"]
-        p_need_positions = [pos for pos, data in p_needs.items() if data["status"] == "need"]
-
-        partner_entry = {
-            "roster_id": p_id,
-            "team_name": partner_roster.get("team_name") or f"Team {p_id}",
-            "owner_name": partner_roster.get("owner_name") or "Owner",
-            "compatibility_score": comp["score"],
-            "tier": comp["tier"],
-            "primary_axis": comp["primary_axis"],
-            "give_position": comp["give_position"],
-            "target_position": comp["target_position"],
-            "partner_surplus_positions": p_surplus,
-            "partner_need_positions": p_need_positions,
-            "reasons": comp["reasons"],
-            "has_direct_trade": False,
-            "direct_trade_preview": None,
-        }
-        partners.append(partner_entry)
-
-    # Sort so the highest compatibility trade partners come first
-    partners.sort(key=lambda p: -p["compatibility_score"])
-
-    # Verify whether our trade engine can make an immediate trade package for each partner
-    for p in partners:
-        target = target_position if target_position in (POSITIONS + ("FLEX",)) else p["target_position"]
-        if target not in (POSITIONS + ("FLEX", "ANY")):
-            target = "ANY"
-        res = None
         try:
-            res = generate_trade_suggestion(league, your_id, p["roster_id"], target, fc_data)
-        except Exception:
-            pass
-
-        # If a specific requested position didn't produce a trade, check if an ANY-position trade exists
-        if (not res or res.get("status") != "ok" or not res.get("suggestion")) and target != "ANY":
-            try:
-                res = generate_trade_suggestion(league, your_id, p["roster_id"], "ANY", fc_data)
-            except Exception:
-                pass
-
-        if res and res.get("status") == "ok" and res.get("suggestion"):
-            eval_data = res["suggestion"]["evaluation"]
-            give_count = len(eval_data.get("give", []))
-            recv_count = len(eval_data.get("receive", []))
-            trade_type = f"{give_count}-for-{recv_count}" if give_count and recv_count else "Direct"
-            p["has_direct_trade"] = True
-            p["direct_trade_preview"] = {
-                "give": [player["name"] for player in eval_data["give"]],
-                "receive": [player["name"] for player in eval_data["receive"]],
-                "give_count": give_count,
-                "receive_count": recv_count,
-                "trade_type": trade_type,
-                "advantage_percent": eval_data["diff_percentage"],
-            }
-            # Verified trade partners get an extra confidence boost
-            p["compatibility_score"] = min(99, max(p["compatibility_score"] + 10, 45 if p["compatibility_score"] < 25 else p["compatibility_score"] + 10))
-            if p["tier"] == "Low Match":
-                p["tier"] = "Moderate Match"
-                if "Limited" in p["primary_axis"] or "No strong" in p["primary_axis"]:
-                    give_positions = "/".join(sorted(set(pl.get("position", "") for pl in eval_data.get("give", []))))
-                    recv_positions = "/".join(sorted(set(pl.get("position", "") for pl in eval_data.get("receive", []))))
-                    if give_positions and recv_positions:
-                        p["primary_axis"] = f"Trade your {give_positions} for their {recv_positions}"
-
-    # Final re-sort in case a verified trade bumped up a partner
-    partners.sort(key=lambda p: -p["compatibility_score"])
-
+            team = context.team(roster_id)
+        except (ValueError, RuntimeError) as exc:
+            # One unsupported roster must not hide usable recommendations for the rest.
+            warnings.append(f"{roster.get('team_name', 'A team')}: {exc}")
+            continue
+        needs = team["needs"]
+        comp = calculate_pair_compatibility(your_needs, needs, requested_position=target_position)
+        partners.append({
+            "roster_id": int(roster_id),
+            "team_name": roster.get("team_name") or f"Team {roster_id}",
+            "owner_name": roster.get("owner_name") or "Owner",
+            "compatibility_score": comp["score"], "tier": comp["tier"],
+            "primary_axis": comp["primary_axis"], "give_position": comp["give_position"],
+            "target_position": comp["target_position"],
+            "partner_surplus_positions": [p for p, n in needs.items() if n["status"] == "surplus"],
+            "partner_need_positions": [p for p, n in needs.items() if n["status"] == "need"],
+            "reasons": comp["reasons"], "has_direct_trade": False,
+            "direct_trade_preview": None, "suggestion_result": None,
+            "verification_status": "not_checked",
+        })
+    # Keep this ordering stable across pages. Verification badges are separate
+    # from the roster-fit score, so checking a page cannot reorder the next one.
+    partners.sort(key=lambda p: (-p["compatibility_score"], p["roster_id"]))
+    page = partners[verification_offset:verification_offset + PARTNER_PREVIEW_PAGE_SIZE]
+    considered = checked = 0
+    for index, partner in enumerate(page):
+        pair_budget = MAX_PARTNER_CANDIDATE_PAIRS // len(page) + (index < MAX_PARTNER_CANDIDATE_PAIRS % len(page))
+        lineup_budget = MAX_PARTNER_LINEUP_CHECKS // len(page) + (index < MAX_PARTNER_LINEUP_CHECKS % len(page))
+        try:
+            # Never retry an explicit request with ANY. Ready always means a
+            # qualifying trade was actually found under these exact preferences.
+            result = _generate_from_context(context, your_id, partner["roster_id"], target_position,
+                                            preferences, pair_budget, lineup_budget)
+        except (ValueError, RuntimeError) as exc:
+            partner["verification_status"] = "unavailable"
+            partner["verification_message"] = str(exc)
+            continue
+        considered += result["candidates_considered"]
+        checked += result["candidates_checked"]
+        partner["search_limited"] = result["search_limited"]
+        if result["status"] != "ok":
+            partner["verification_status"] = "search_limited" if result["search_limited"] else "no_match"
+            continue
+        suggestion = result["suggestion"]
+        evaluation = suggestion["evaluation"]
+        partner["verification_status"] = "ready"
+        partner["has_direct_trade"] = True
+        # Use the actual target from this verified trade when a card autofills
+        # ANY, rather than an earlier heuristic that might suggest another position.
+        partner["target_position"] = suggestion["target_position"]
+        partner["direct_trade_preview"] = {
+            "give": [p["name"] for p in evaluation["give"]],
+            "receive": [p["name"] for p in evaluation["receive"]],
+            "give_count": len(evaluation["give"]), "receive_count": len(evaluation["receive"]),
+            "trade_type": suggestion["trade_type"], "advantage_percent": suggestion["net_advantage_percent"],
+            "target_position": suggestion["target_position"],
+        }
+        # The UI can reuse this verified result for unchanged selections instead
+        # of running another search that samples a different candidate shortlist.
+        partner["suggestion_result"] = result
+        give_positions = "/".join(sorted({p["position"] for p in evaluation["give"]}))
+        receive_positions = "/".join(sorted({p["position"] for p in evaluation["receive"]}))
+        partner["primary_axis"] = f"Trade your {give_positions} for their {receive_positions}"
+    next_offset = verification_offset + len(page)
     return {
-        "status": "ok",
-        "your_roster_id": int(your_id),
-        "target_position": target_position,
+        "status": "ok", "your_roster_id": int(your_id), "target_position": target_position,
+        "preferences": preferences.as_dict(), "warnings": warnings,
         "your_analysis": {
             "positions": your_needs,
-            "surplus_positions": your_surplus,
-            "need_positions": your_need_positions,
+            "surplus_positions": [p for p, n in your_needs.items() if n["status"] == "surplus"],
+            "need_positions": [p for p, n in your_needs.items() if n["status"] == "need"],
         },
+        "verification": {"offset": verification_offset, "checked_count": len(page),
+                         "next_offset": next_offset if next_offset < len(partners) else None,
+                         "candidates_considered": considered, "candidates_checked": checked},
         "partners": partners,
     }

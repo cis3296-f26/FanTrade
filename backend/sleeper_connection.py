@@ -520,6 +520,9 @@ def get_league_rosters(league_id: str, resolve_names: bool = True):
             "ties": settings.get("ties", 0),
             "points": fpts,
             "player_count": len(players_list),
+            # These players occupy separate slots, not ordinary starting/bench space.
+            "reserve": [str(pid) for pid in (r.get("reserve") or [])],
+            "taxi": [str(pid) for pid in (r.get("taxi") or [])],
             "players": players_list
         })
 

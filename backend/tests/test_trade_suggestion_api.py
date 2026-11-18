@@ -30,6 +30,30 @@ class TradeSuggestionApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         rosters.assert_not_called()
 
+    def test_invalid_preferences_are_rejected_before_loading_rosters(self):
+        for changes in ({"min_gain_percent": 0}, {"max_gain_percent": 36},
+                        {"min_gain_percent": 5, "max_gain_percent": 12},
+                        {"trade_style": ["trade_up", "add_depth"]}):
+            with self.subTest(changes=changes), patch("app.get_league_rosters") as rosters:
+                response = self.client.post("/api/trade-suggestions", json={**self.payload, **changes})
+                self.assertEqual(response.status_code, 400)
+                rosters.assert_not_called()
+
+    def test_preferences_reach_the_search_and_are_echoed_in_results(self):
+        league, market = fixture()
+        preferences = {"min_gain_percent": 1, "max_gain_percent": 35,
+                       "trade_style": "balanced"}
+        with patch("app.get_league_rosters", return_value=league), \
+                patch("fancalc_connection.fetch_fancalc_values", return_value=market):
+            response = self.client.post("/api/trade-suggestions", json={**self.payload, **preferences})
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(data["status"], "ok")
+        self.assertEqual(data["preferences"], preferences)
+        trade = data["suggestion"]["evaluation"]
+        self.assertEqual(len(trade["give"]), len(trade["receive"]))
+        self.assertIn("roster_moves", data["suggestion"])
+
     def test_foreign_team_is_rejected_before_loading_values(self):
         league, _ = fixture()
         with patch("app.get_league_rosters", return_value=league), \
