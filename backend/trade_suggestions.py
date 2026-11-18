@@ -2,7 +2,7 @@
 
 import math
 
-from fancalc_connection import build_player_value_lookup, evaluate_player_values
+from fancalc_connection import evaluate_player_values
 from trade_analysis import (
     POSITIONS, FLEX_POSITIONS, SLOT_POSITIONS, analyze_roster,
     analyze_team_positional_needs, extract_valued_players_for_roster,
@@ -10,10 +10,13 @@ from trade_analysis import (
 )
 
 from trade_preferences import TradePreferences
-from trade_search import prepare_team, search_packages
+from trade_search import LeagueTradeContext, search_packages
 
 MAX_CANDIDATE_PAIRS = 25000
 MAX_LINEUP_CHECKS = 900
+PARTNER_PREVIEW_PAGE_SIZE = 3
+MAX_PARTNER_CANDIDATE_PAIRS = 25000
+MAX_PARTNER_LINEUP_CHECKS = 900
 
 
 def validate_suggestion_request(data):
@@ -34,9 +37,9 @@ def validate_suggestion_request(data):
     if ids[0] == ids[1]:
         raise ValueError("Choose two different teams.")
     position = data.get("position", "ANY")
-    if not isinstance(position, str) or position not in (*POSITIONS, "ANY", "FLEX"):
+    if not isinstance(position, str) or position.upper() not in (*POSITIONS, "ANY", "FLEX"):
         raise ValueError("Choose Any, QB, RB, WR, TE, or FLEX.")
-    return league_id.strip(), ids[0], ids[1], position
+    return league_id.strip(), ids[0], ids[1], position.upper()
 
 
 def validate_compatible_partners_request(data):
@@ -53,10 +56,8 @@ def validate_compatible_partners_request(data):
         raise ValueError("Choose a valid team.")
     position = data.get("position", "ANY")
     if not isinstance(position, str) or position.upper() not in POSITIONS + ("ANY", "FLEX"):
-        position = "ANY"
-    else:
-        position = position.upper()
-    return league_id.strip(), int(your_id), position
+        raise ValueError("Choose Any, QB, RB, WR, TE, or FLEX.")
+    return league_id.strip(), int(your_id), position.upper()
 
 
 def within_value_range(give_total, receive_total, preferences=None, drop_total=0):
@@ -69,31 +70,22 @@ def generate_trade_suggestion(league, your_id, partner_id, requested, fc_data, p
     preferences = preferences or TradePreferences()
     if requested not in (*POSITIONS, "ANY", "FLEX") or str(your_id) == str(partner_id):
         raise ValueError("Choose two different teams and a supported position.")
-    slots, settings = league_trade_settings(league)
-    rosters = {str(r["roster_id"]): r for r in league.get("rosters", [])}
-    if str(your_id) not in rosters or str(partner_id) not in rosters:
-        raise ValueError("Both teams must belong to the selected league.")
-    selected = [rosters[str(your_id)], rosters[str(partner_id)]]
-    directory = {str(p["player_id"]): p for r in selected for p in r["players"]}
-    lookup = build_player_value_lookup(fc_data, directory)
-    # K and DEF still take up roster space even though they are never trade assets.
-    capacity = len(league["roster_positions"])
-    yours, theirs = [prepare_team(r, lookup, slots, capacity) for r in selected]
+    context = LeagueTradeContext(league, fc_data)
+    return _generate_from_context(context, your_id, partner_id, requested, preferences,
+                                  MAX_CANDIDATE_PAIRS, MAX_LINEUP_CHECKS)
+
+
+def _generate_from_context(context, your_id, partner_id, requested, preferences, pair_budget, lineup_budget):
+    """Use the same engine and result format for previews and full searches."""
+    yours, theirs = context.team(your_id), context.team(partner_id)
     if yours["active_ids"] & theirs["active_ids"]:
         raise ValueError("The teams contain overlapping players. Reload the league and try again.")
     warnings = [f"{t['team_name']}: {t['missing']} players lacked usable market values and were excluded."
                 for t in (yours, theirs) if t["missing"]]
-    market = {pos: [] for pos in POSITIONS}
-    for item in fc_data:
-        pos = (item.get("player") or {}).get("position")
-        value = item.get("value")
-        if pos in market and isinstance(value, (int, float)) and math.isfinite(value) and value > 0:
-            market[pos].append(value)
-    for values in market.values():
-        values.sort()
-    targets = rank_target_positions(yours["lineup"], requested, market)
-    best, diagnostics = search_packages(yours, theirs, slots, preferences, targets,
-                                        MAX_CANDIDATE_PAIRS, MAX_LINEUP_CHECKS)
+    targets = context.targets(yours, requested)
+    best, diagnostics = search_packages(yours, theirs, context.slots, preferences, targets,
+                                        pair_budget, lineup_budget)
+    settings = context.settings
     if diagnostics["search_limited"]:
         warnings.append("The search checked a limited selection of packages across the allowed trade formats.")
     common = {
@@ -250,116 +242,104 @@ def calculate_pair_compatibility(y_needs, p_needs, requested_position="ANY"):
     }
 
 
-def find_compatible_trade_partners(league, your_id, fc_data, target_position="ANY"):
-    """
-    Scans every other team in the league against the user's team, evaluating
-    positional surplus, dropoff, and mutual trade compatibility.
-    """
-    slots, _ = league_trade_settings(league)
-    rosters = {str(r["roster_id"]): r for r in league.get("rosters", [])}
-    if str(your_id) not in rosters:
-        raise ValueError("Selected team must belong to the league.")
+def validate_verification_offset(data):
+    """Let expanded recommendations request the next small batch of previews."""
+    offset = data.get("verification_offset", 0)
+    if type(offset) is not int or not 0 <= offset <= 13:
+        raise ValueError("Choose a valid recommendation page.")
+    return offset
 
-    all_players = [p for r in league.get("rosters", []) for p in r.get("players", [])]
-    directory = {str(p["player_id"]): p for p in all_players}
-    lookup = build_player_value_lookup(fc_data, directory)
 
-    # First analyze the user's own team needs and surplus positions
-    your_roster = rosters[str(your_id)]
-    your_players = extract_valued_players_for_roster(your_roster, lookup)
-    your_needs = analyze_team_positional_needs(your_players, slots)
-
-    your_surplus = [pos for pos, data in your_needs.items() if data["status"] == "surplus"]
-    your_need_positions = [pos for pos, data in your_needs.items() if data["status"] == "need"]
-
-    # Now scan all other teams in the league and calculate mutual fit scores
+def find_compatible_trade_partners(league, your_id, fc_data, target_position="ANY",
+                                   preferences=None, verification_offset=0):
+    """Rank every partner, but verify only one bounded page of trade previews."""
+    preferences = preferences or TradePreferences()
+    if target_position not in (*POSITIONS, "ANY", "FLEX"):
+        raise ValueError("Choose Any, QB, RB, WR, TE, or FLEX.")
+    validate_verification_offset({"verification_offset": verification_offset})
+    context = LeagueTradeContext(league, fc_data)
+    yours = context.team(your_id)
+    your_needs = yours["needs"]
+    warnings = []
     partners = []
-    for r_id_str, partner_roster in rosters.items():
-        if r_id_str == str(your_id):
+    for roster_id, roster in context.rosters.items():
+        if roster_id == str(your_id):
             continue
-        p_id = int(r_id_str)
-        p_players = extract_valued_players_for_roster(partner_roster, lookup)
-        if not p_players:
-            continue
-        p_needs = analyze_team_positional_needs(p_players, slots)
-        comp = calculate_pair_compatibility(your_needs, p_needs, requested_position=target_position)
-
-        p_surplus = [pos for pos, data in p_needs.items() if data["status"] == "surplus"]
-        p_need_positions = [pos for pos, data in p_needs.items() if data["status"] == "need"]
-
-        partner_entry = {
-            "roster_id": p_id,
-            "team_name": partner_roster.get("team_name") or f"Team {p_id}",
-            "owner_name": partner_roster.get("owner_name") or "Owner",
-            "compatibility_score": comp["score"],
-            "tier": comp["tier"],
-            "primary_axis": comp["primary_axis"],
-            "give_position": comp["give_position"],
-            "target_position": comp["target_position"],
-            "partner_surplus_positions": p_surplus,
-            "partner_need_positions": p_need_positions,
-            "reasons": comp["reasons"],
-            "has_direct_trade": False,
-            "direct_trade_preview": None,
-        }
-        partners.append(partner_entry)
-
-    # Sort so the highest compatibility trade partners come first
-    partners.sort(key=lambda p: -p["compatibility_score"])
-
-    # Verify whether our trade engine can make an immediate trade package for each partner
-    for p in partners:
-        target = target_position if target_position in (POSITIONS + ("FLEX",)) else p["target_position"]
-        if target not in (POSITIONS + ("FLEX", "ANY")):
-            target = "ANY"
-        res = None
         try:
-            res = generate_trade_suggestion(league, your_id, p["roster_id"], target, fc_data)
-        except Exception:
-            pass
-
-        # If a specific requested position didn't produce a trade, check if an ANY-position trade exists
-        if (not res or res.get("status") != "ok" or not res.get("suggestion")) and target != "ANY":
-            try:
-                res = generate_trade_suggestion(league, your_id, p["roster_id"], "ANY", fc_data)
-            except Exception:
-                pass
-
-        if res and res.get("status") == "ok" and res.get("suggestion"):
-            eval_data = res["suggestion"]["evaluation"]
-            give_count = len(eval_data.get("give", []))
-            recv_count = len(eval_data.get("receive", []))
-            trade_type = f"{give_count}-for-{recv_count}" if give_count and recv_count else "Direct"
-            p["has_direct_trade"] = True
-            p["direct_trade_preview"] = {
-                "give": [player["name"] for player in eval_data["give"]],
-                "receive": [player["name"] for player in eval_data["receive"]],
-                "give_count": give_count,
-                "receive_count": recv_count,
-                "trade_type": trade_type,
-                "advantage_percent": eval_data["diff_percentage"],
-            }
-            # Verified trade partners get an extra confidence boost
-            p["compatibility_score"] = min(99, max(p["compatibility_score"] + 10, 45 if p["compatibility_score"] < 25 else p["compatibility_score"] + 10))
-            if p["tier"] == "Low Match":
-                p["tier"] = "Moderate Match"
-                if "Limited" in p["primary_axis"] or "No strong" in p["primary_axis"]:
-                    give_positions = "/".join(sorted(set(pl.get("position", "") for pl in eval_data.get("give", []))))
-                    recv_positions = "/".join(sorted(set(pl.get("position", "") for pl in eval_data.get("receive", []))))
-                    if give_positions and recv_positions:
-                        p["primary_axis"] = f"Trade your {give_positions} for their {recv_positions}"
-
-    # Final re-sort in case a verified trade bumped up a partner
-    partners.sort(key=lambda p: -p["compatibility_score"])
-
+            team = context.team(roster_id)
+        except (ValueError, RuntimeError) as exc:
+            # One unsupported roster must not hide usable recommendations for the rest.
+            warnings.append(f"{roster.get('team_name', 'A team')}: {exc}")
+            continue
+        needs = team["needs"]
+        comp = calculate_pair_compatibility(your_needs, needs, requested_position=target_position)
+        partners.append({
+            "roster_id": int(roster_id),
+            "team_name": roster.get("team_name") or f"Team {roster_id}",
+            "owner_name": roster.get("owner_name") or "Owner",
+            "compatibility_score": comp["score"], "tier": comp["tier"],
+            "primary_axis": comp["primary_axis"], "give_position": comp["give_position"],
+            "target_position": comp["target_position"],
+            "partner_surplus_positions": [p for p, n in needs.items() if n["status"] == "surplus"],
+            "partner_need_positions": [p for p, n in needs.items() if n["status"] == "need"],
+            "reasons": comp["reasons"], "has_direct_trade": False,
+            "direct_trade_preview": None, "suggestion_result": None,
+            "verification_status": "not_checked",
+        })
+    # Keep this ordering stable across pages. Verification badges are separate
+    # from the roster-fit score, so checking a page cannot reorder the next one.
+    partners.sort(key=lambda p: (-p["compatibility_score"], p["roster_id"]))
+    page = partners[verification_offset:verification_offset + PARTNER_PREVIEW_PAGE_SIZE]
+    considered = checked = 0
+    for index, partner in enumerate(page):
+        pair_budget = MAX_PARTNER_CANDIDATE_PAIRS // len(page) + (index < MAX_PARTNER_CANDIDATE_PAIRS % len(page))
+        lineup_budget = MAX_PARTNER_LINEUP_CHECKS // len(page) + (index < MAX_PARTNER_LINEUP_CHECKS % len(page))
+        try:
+            # Never retry an explicit request with ANY. Ready always means a
+            # qualifying trade was actually found under these exact preferences.
+            result = _generate_from_context(context, your_id, partner["roster_id"], target_position,
+                                            preferences, pair_budget, lineup_budget)
+        except (ValueError, RuntimeError) as exc:
+            partner["verification_status"] = "unavailable"
+            partner["verification_message"] = str(exc)
+            continue
+        considered += result["candidates_considered"]
+        checked += result["candidates_checked"]
+        partner["search_limited"] = result["search_limited"]
+        if result["status"] != "ok":
+            partner["verification_status"] = "search_limited" if result["search_limited"] else "no_match"
+            continue
+        suggestion = result["suggestion"]
+        evaluation = suggestion["evaluation"]
+        partner["verification_status"] = "ready"
+        partner["has_direct_trade"] = True
+        # Use the actual target from this verified trade when a card autofills
+        # ANY, rather than an earlier heuristic that might suggest another position.
+        partner["target_position"] = suggestion["target_position"]
+        partner["direct_trade_preview"] = {
+            "give": [p["name"] for p in evaluation["give"]],
+            "receive": [p["name"] for p in evaluation["receive"]],
+            "give_count": len(evaluation["give"]), "receive_count": len(evaluation["receive"]),
+            "trade_type": suggestion["trade_type"], "advantage_percent": suggestion["net_advantage_percent"],
+            "target_position": suggestion["target_position"],
+        }
+        # The UI can reuse this verified result for unchanged selections instead
+        # of running another search that samples a different candidate shortlist.
+        partner["suggestion_result"] = result
+        give_positions = "/".join(sorted({p["position"] for p in evaluation["give"]}))
+        receive_positions = "/".join(sorted({p["position"] for p in evaluation["receive"]}))
+        partner["primary_axis"] = f"Trade your {give_positions} for their {receive_positions}"
+    next_offset = verification_offset + len(page)
     return {
-        "status": "ok",
-        "your_roster_id": int(your_id),
-        "target_position": target_position,
+        "status": "ok", "your_roster_id": int(your_id), "target_position": target_position,
+        "preferences": preferences.as_dict(), "warnings": warnings,
         "your_analysis": {
             "positions": your_needs,
-            "surplus_positions": your_surplus,
-            "need_positions": your_need_positions,
+            "surplus_positions": [p for p, n in your_needs.items() if n["status"] == "surplus"],
+            "need_positions": [p for p, n in your_needs.items() if n["status"] == "need"],
         },
+        "verification": {"offset": verification_offset, "checked_count": len(page),
+                         "next_offset": next_offset if next_offset < len(partners) else None,
+                         "candidates_considered": considered, "candidates_checked": checked},
         "partners": partners,
     }

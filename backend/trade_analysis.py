@@ -121,7 +121,7 @@ def extract_valued_players_for_roster(roster, lookup):
     return sorted(players, key=lambda p: p["player_id"])
 
 
-def analyze_team_positional_needs(players, slots):
+def analyze_team_positional_needs(players, slots, lineup=None):
     """
     Analyzes a team's positional roster composition, evaluating:
     - starter counts, totals, and baseline starter levels
@@ -132,7 +132,8 @@ def analyze_team_positional_needs(players, slots):
     - need scores (0-100) indicating roster weakness or fragility
     """
     # Group optimal starters and bench players by position using the league's roster rules
-    lineup = analyze_roster(players, slots)
+    # Partner scans can reuse the lineup they already calculated for this team.
+    lineup = lineup if lineup is not None else analyze_roster(players, slots)
     starters_by_pos = {pos: [] for pos in POSITIONS}
     for item in lineup["starters"]:
         p = item.get("player")

@@ -6,7 +6,53 @@ from dataclasses import dataclass
 from heapq import heappush, heapreplace
 from itertools import combinations
 
-from trade_analysis import POSITIONS, analyze_roster, extract_valued_players_for_roster
+import math
+
+from fancalc_connection import build_player_value_lookup
+from trade_analysis import (
+    POSITIONS, SLOT_POSITIONS, analyze_roster, analyze_team_positional_needs,
+    extract_valued_players_for_roster, league_trade_settings, rank_target_positions,
+)
+
+
+class LeagueTradeContext:
+    """Reuse one value snapshot and lazily prepare each roster during a request."""
+
+    def __init__(self, league, fc_data):
+        self.slots, self.settings = league_trade_settings(league)
+        self.capacity = len(league["roster_positions"])
+        self.rosters = {str(r["roster_id"]): r for r in league.get("rosters", [])}
+        directory = {str(p["player_id"]): p for r in self.rosters.values() for p in r.get("players", [])}
+        self.lookup = build_player_value_lookup(fc_data, directory)
+        self.teams = {}
+        self.market = {position: [] for position in POSITIONS}
+        for item in fc_data:
+            position = (item.get("player") or {}).get("position")
+            value = item.get("value")
+            if (position in self.market and isinstance(value, (int, float))
+                    and not isinstance(value, bool) and math.isfinite(value) and value > 0):
+                self.market[position].append(value)
+        for values in self.market.values():
+            values.sort()
+
+    def team(self, roster_id):
+        """Prepare a team's lineup and needs once, even across several previews."""
+        key = str(roster_id)
+        if key not in self.rosters:
+            raise ValueError("Both teams must belong to the selected league.")
+        if key not in self.teams:
+            team = prepare_team(self.rosters[key], self.lookup, self.slots, self.capacity)
+            team["needs"] = analyze_team_positional_needs(team["players"], self.slots, lineup=team["lineup"])
+            self.teams[key] = team
+        return self.teams[key]
+
+    def targets(self, team, requested):
+        """Use the same needs shown in recommendations to prioritize generation."""
+        ranked = rank_target_positions(team["lineup"], requested, self.market)
+        eligible = {position for slot in self.slots for position in SLOT_POSITIONS[slot]}
+        # Market percentiles break ties between equally severe positional needs.
+        return sorted((p for p in ranked if p in eligible),
+                      key=lambda p: (-team["needs"][p]["need_score"], ranked.index(p)))
 
 
 @dataclass(frozen=True)
@@ -29,6 +75,15 @@ def build_packages(players, sizes):
                      key=lambda package: (package.total, tuple(sorted(package.ids))))
         for size in sorted(set(sizes))
     }
+
+
+def team_packages(team, sizes):
+    """Share package construction across previews for the same team."""
+    cache = team.setdefault("packages", {})
+    missing = set(sizes) - cache.keys()
+    if missing:
+        cache.update(build_packages(team["players"], missing))
+    return cache
 
 
 def prepare_team(roster, lookup, slots, capacity):
@@ -118,8 +173,8 @@ def qualifying_target(before, after, receive, targets, give_count):
 def shortlist_packages(yours, theirs, preferences, targets, pair_budget, lineup_budget):
     """Join value intervals and retain small, separate shortlists for each format."""
     formats = preferences.formats
-    give_packages = build_packages(yours['players'], [g for g, _ in formats])
-    receive_packages = build_packages(theirs['players'], [r for _, r in formats])
+    give_packages = team_packages(yours, [g for g, _ in formats])
+    receive_packages = team_packages(theirs, [r for _, r in formats])
     lists, considered, limited = [], 0, False
     spare = {p['player_id'] for p in yours['lineup']['depth']}
     partner_spare = {p['player_id'] for p in theirs['lineup']['depth']}
