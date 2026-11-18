@@ -70,7 +70,7 @@ export default function RosterSearch({ leagueId, platform = "sleeper", onSave, i
       <div className="roster-search league-content-layout">
         <p role="status">Loading teams and player names...</p>
         {/* Show the panel right away, with its controls disabled until teams load. */}
-        {!isEspn && <TradeSuggestion loading />}
+        <TradeSuggestion loading />
       </div>
     );
   }
@@ -92,7 +92,7 @@ export default function RosterSearch({ leagueId, platform = "sleeper", onSave, i
           </button>
         </div>
         {/* Keep the panel visible and explain that the league needs to be loaded again. */}
-        {!isEspn && <TradeSuggestion unavailable />}
+        <TradeSuggestion unavailable />
       </div>
     );
   }
@@ -148,7 +148,7 @@ export default function RosterSearch({ leagueId, platform = "sleeper", onSave, i
       )}
 
       {/* Keep the league heading above both columns: rosters on the left, trades on the right. */}
-      <div className={isEspn ? "league-content-layout espn-roster-layout" : "league-content-layout"}>
+      <div className="league-content-layout">
         <div className="league-roster-content">
           <div className="search-controls">
             <div className="field">
@@ -214,7 +214,12 @@ export default function RosterSearch({ leagueId, platform = "sleeper", onSave, i
           )}
         </div>
         {/* Pass the league ID for generation and all teams so search doesn't filter the dropdowns. */}
-        {!isEspn && <TradeSuggestion leagueId={leagueId} teams={league.rosters} />}
+        <TradeSuggestion
+          leagueId={isEspn ? league.league_id : leagueId}
+          platform={platform}
+          season={league.season}
+          teams={league.rosters}
+        />
       </div>
     </section>
   );

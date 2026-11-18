@@ -32,10 +32,6 @@
   margin-top: 24px;
 }
 
-.search-app .league-content-layout.espn-roster-layout {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 .search-app .league-roster-content {
   min-width: 0;
   overflow-wrap: anywhere;

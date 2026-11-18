@@ -2,7 +2,7 @@ import json
 import os
 import pathlib
 import re
-from datetime import timedelta
+from datetime import date, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,7 +23,7 @@ from sleeper_connection import (
     get_all_nfl_teams,
     search_nfl_players,
 )
-from espn_connection import espn_trade_rosters, get_espn_league
+from espn_connection import espn_suggestion_league, espn_trade_rosters, get_espn_league
 from nfl_pbp_connection import get_play_by_play_data, get_summary_stats
 
 from db import get_db
@@ -404,6 +404,25 @@ def trade_evaluation():
             "error": "Could not calculate trade with FantasyCalc values. Please try again."
         }), 503
 
+def load_suggestion_league(data, league_id):
+    platform = data.get("platform", "sleeper")
+    if platform == "sleeper":
+        return get_league_rosters(league_id)
+    if platform != "espn":
+        raise ValueError("Choose a supported league platform.")
+
+    season = data.get("season")
+    if type(season) is not int or not 1999 <= season <= date.today().year:
+        raise ValueError("Choose a valid ESPN season.")
+    league = get_espn_league(league_id, season=season)
+    if "error" in league:
+        return league
+    directory = _load_players()
+    if not directory:
+        return {"error": "Player directory is unavailable. Try again."}
+    return espn_suggestion_league(league, directory)
+
+
 @api.route("/trade-suggestions", methods=["POST"])
 def trade_suggestions():
     from fancalc_connection import fetch_fancalc_values
@@ -414,10 +433,9 @@ def trade_suggestions():
     try:
         # Validate selections first, then load rosters on the server so player
         # ownership and league rules don't depend on data sent by the browser.
-        league_id, your_id, partner_id, position = validate_suggestion_request(
-            request.get_json(silent=True)
-        )
-        league = get_league_rosters(league_id)
+        data = request.get_json(silent=True)
+        league_id, your_id, partner_id, position = validate_suggestion_request(data)
+        league = load_suggestion_league(data, league_id)
         if not isinstance(league, dict) or league.get("error"):
             return jsonify({"error": "Could not load this league. Try again."}), 503
         roster_ids = {str(r["roster_id"]) for r in league.get("rosters", [])}
@@ -447,10 +465,9 @@ def trade_compatible_partners():
 
     try:
         # Validate request body and make sure the selected team actually belongs to this league
-        league_id, your_id, position = validate_compatible_partners_request(
-            request.get_json(silent=True)
-        )
-        league = get_league_rosters(league_id)
+        data = request.get_json(silent=True)
+        league_id, your_id, position = validate_compatible_partners_request(data)
+        league = load_suggestion_league(data, league_id)
         if not isinstance(league, dict) or league.get("error"):
             return jsonify({"error": "Could not load this league. Try again."}), 503
         roster_ids = {str(r["roster_id"]) for r in league.get("rosters", [])}

@@ -80,6 +80,8 @@ function TeamSelector({
 
 export default function TradeSuggestion({
   leagueId,
+  platform = "sleeper",
+  season,
   teams = [],
   loading = false,
   unavailable = false,
@@ -141,6 +143,8 @@ export default function TradeSuggestion({
       signal: controller.signal,
       body: JSON.stringify({
         league_id: String(leagueId),
+        platform,
+        ...(platform === "espn" && { season }),
         your_roster_id: yourTeamId,
         position,
       }),
@@ -168,7 +172,7 @@ export default function TradeSuggestion({
       });
 
     return () => controller.abort();
-  }, [leagueId, yourTeamId, position, loading, unavailable, teams.length]);
+  }, [leagueId, platform, season, yourTeamId, position, loading, unavailable, teams.length]);
 
   // When someone clicks a recommended partner card, pre-populate the partner dropdown and target position
   function handleSelectPartner(partner) {
@@ -203,6 +207,8 @@ export default function TradeSuggestion({
         signal: controller.signal,
         body: JSON.stringify({
           league_id: String(leagueId),
+          platform,
+          ...(platform === "espn" && { season }),
           your_roster_id: yourTeamId,
           partner_roster_id: partnerTeamId,
           position,

@@ -20,6 +20,14 @@ ESPN_POSITION_MAP = {
 }
 
 
+ESPN_LINEUP_SLOTS = {
+    "0": "QB", "2": "RB", "3": "WRRB_FLEX", "4": "WR", "5": "REC_FLEX",
+    "6": "TE", "7": "SUPER_FLEX", "16": "DEF", "17": "K", "23": "FLEX",
+}
+ESPN_RESERVE_SLOTS = {"20", "21"}
+ESPN_RECEPTIONS_STAT_ID = 53
+
+
 def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = None, swid: str = None):
     """
     Fetches league info, teams, and active rosters from ESPN Fantasy Football v3 API.
@@ -148,7 +156,15 @@ def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = No
         "name": league_name,
         "season": season,
         "total_rosters": len(teams),
-        "teams": teams
+        "teams": teams,
+        "rules": {
+            "lineup_slot_counts": (settings.get("rosterSettings") or {}).get("lineupSlotCounts"),
+            "num_teams": settings.get("size"),
+            "keeper_count": (settings.get("draftSettings") or {}).get("keeperCount"),
+            "future_keeper_count": (settings.get("draftSettings") or {}).get("keeperCountFuture"),
+            "scoring_type": (settings.get("scoringSettings") or {}).get("scoringType"),
+            "scoring_items": (settings.get("scoringSettings") or {}).get("scoringItems"),
+        },
     }
 
 
@@ -197,6 +213,7 @@ def espn_trade_rosters(league, player_directory):
             players.append({
                 **player,
                 "player_id": player_id,
+                "full_name": player_directory[player_id].get("full_name") or player["name"],
                 "team": player_directory[player_id].get("team"),
             })
         rosters.append({**team, "roster_id": str(team["team_id"]), "players": players})
@@ -206,6 +223,42 @@ def espn_trade_rosters(league, player_directory):
         "season": league["season"],
         "rosters": rosters,
         "unmapped_count": unmapped_count,
+    }
+
+
+def espn_suggestion_league(league, player_directory):
+    """Translate ESPN rules to the roster and scoring inputs the suggestion engine uses."""
+    rules = league.get("rules", {})
+    if rules.get("keeper_count") != 0 or rules.get("future_keeper_count") not in (None, 0):
+        raise ValueError("ESPN suggestions currently support redraft leagues.")
+
+    counts = rules.get("lineup_slot_counts")
+    slots = []
+    if not isinstance(counts, dict):
+        raise ValueError("ESPN did not return lineup settings for this league.")
+    for slot_id, count in counts.items():
+        if type(count) is not int or count < 0:
+            raise ValueError("ESPN returned invalid lineup settings.")
+        if not count or slot_id in ESPN_RESERVE_SLOTS:
+            continue
+        if slot_id not in ESPN_LINEUP_SLOTS or count > 12:
+            raise ValueError("This ESPN league's starting lineup format is not supported yet.")
+        slots.extend([ESPN_LINEUP_SLOTS[slot_id]] * count)
+
+    scoring_items = rules.get("scoring_items")
+    if rules.get("scoring_type") != "H2H_POINTS" or not isinstance(scoring_items, list) or not scoring_items:
+        raise ValueError("This ESPN league's scoring format is not supported yet.")
+    receptions = [item for item in scoring_items if item.get("statId") == ESPN_RECEPTIONS_STAT_ID]
+    if len(receptions) > 1 or any(item.get("pointsOverrides") for item in receptions):
+        raise ValueError("ESPN suggestions do not support position-specific reception scoring.")
+    ppr = receptions[0].get("points") if receptions else 0
+    result = espn_trade_rosters(league, player_directory)
+    return {
+        **result,
+        "total_rosters": len(result["rosters"]),
+        "roster_positions": slots,
+        "settings": {"type": 0, "num_teams": rules.get("num_teams")},
+        "scoring_settings": {"rec": ppr},
     }
 
 
