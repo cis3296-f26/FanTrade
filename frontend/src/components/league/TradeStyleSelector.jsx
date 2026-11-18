@@ -72,7 +72,7 @@ export default function TradeStyleSelector({ value, onChange, disabled }) {
             <div id="trade-style-help" className="trade-style-help" role="region" aria-label="Trade style explanations">
               <p><strong>Trade up:</strong> Give more players than you receive, such as 2 for 1, to upgrade a starting option.</p>
               <p><strong>Balanced:</strong> Exchange the same number of players, such as 1 for 1 or 2 for 2.</p>
-              <p><strong>Add depth:</strong> Give fewer players than you receive, such as 1 for 2, to gain more usable players. At least one of two, or two of three, incoming players must fit your projected starting lineup.</p>
+              <p><strong>Add depth:</strong> Give fewer players than you receive, such as 1 for 2, to gain more usable players.</p>
               <p><strong>Any:</strong> Consider every format. The combined options include both named styles.</p>
               <button type="button" className="trade-style-help-button" onClick={() => setShowHelp(false)}>Close explanation</button>
             </div>

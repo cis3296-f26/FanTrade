@@ -28,8 +28,8 @@ export default function TradeWinRange({ value, onChange, onCommit, disabled }) {
         <Slider.Thumb className="trade-range-thumb" aria-label="Maximum value advantage" aria-describedby="trade-range-help" />
       </Slider.Root>
       <p id="trade-range-help" className="muted trade-control-help">
-        Choose 1%–35%, with at least 8 percentage points between the limits.
-        Your required drops count toward the cost.
+        Value advantage is how much more player value you receive than you give up,
+        including the value of any players you must drop.
       </p>
     </div>
   );
