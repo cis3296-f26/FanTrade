@@ -404,12 +404,14 @@ def trade_suggestions():
         generate_trade_suggestion, league_trade_settings, validate_suggestion_request,
     )
 
+    from trade_preferences import parse_trade_preferences
+
     try:
         # Validate selections first, then load rosters on the server so player
         # ownership and league rules don't depend on data sent by the browser.
-        league_id, your_id, partner_id, position = validate_suggestion_request(
-            request.get_json(silent=True)
-        )
+        data = request.get_json(silent=True)
+        league_id, your_id, partner_id, position = validate_suggestion_request(data)
+        preferences = parse_trade_preferences(data)
         league = get_league_rosters(league_id)
         if not isinstance(league, dict) or league.get("error"):
             return jsonify({"error": "Could not load this league. Try again."}), 503
@@ -421,7 +423,9 @@ def trade_suggestions():
         values = fetch_fancalc_values(**settings)
         if not values:
             return jsonify({"error": "Player valuation data is unavailable. Try again."}), 503
-        return jsonify(generate_trade_suggestion(league, your_id, partner_id, position, values))
+        return jsonify(generate_trade_suggestion(
+            league, your_id, partner_id, position, values, preferences=preferences
+        ))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception:

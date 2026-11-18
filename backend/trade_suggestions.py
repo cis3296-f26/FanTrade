@@ -1,7 +1,5 @@
-"""Find two-for-two trades using roster needs and shared market values."""
+"""Find trade suggestions and compatible partners using shared roster values."""
 
-from collections import Counter
-from itertools import combinations
 import math
 
 from fancalc_connection import build_player_value_lookup, evaluate_player_values
@@ -11,9 +9,11 @@ from trade_analysis import (
     league_trade_settings, rank_target_positions,
 )
 
-MIN_GAIN_PERCENT = 2
-MAX_GAIN_PERCENT = 8
-MAX_LINEUP_CHECKS = 2500
+from trade_preferences import TradePreferences
+from trade_search import prepare_team, search_packages
+
+MAX_CANDIDATE_PAIRS = 25000
+MAX_LINEUP_CHECKS = 900
 
 
 def validate_suggestion_request(data):
@@ -59,16 +59,15 @@ def validate_compatible_partners_request(data):
     return league_id.strip(), int(your_id), position
 
 
-def within_value_range(give_total, receive_total):
-    # Use unrounded totals at the boundaries; rounding could admit a 1.96% gain.
-    larger = max(give_total, receive_total)
-    difference = receive_total - give_total
-    return larger > 0 and MIN_GAIN_PERCENT * larger <= difference * 100 <= MAX_GAIN_PERCENT * larger
+def within_value_range(give_total, receive_total, preferences=None, drop_total=0):
+    """Apply the same net-value rules used by the search preferences."""
+    return (preferences or TradePreferences()).accepts_value(give_total, receive_total, drop_total)
 
 
-def generate_trade_suggestion(league, your_id, partner_id, requested, fc_data):
-    """Search a bounded set of packages and return a suggestion or a clear no-match result."""
-    if requested not in (*POSITIONS, "ANY", "FLEX") or your_id == partner_id:
+def generate_trade_suggestion(league, your_id, partner_id, requested, fc_data, preferences=None):
+    """Prepare two teams once, then search their permitted package sizes."""
+    preferences = preferences or TradePreferences()
+    if requested not in (*POSITIONS, "ANY", "FLEX") or str(your_id) == str(partner_id):
         raise ValueError("Choose two different teams and a supported position.")
     slots, settings = league_trade_settings(league)
     rosters = {str(r["roster_id"]): r for r in league.get("rosters", [])}
@@ -77,36 +76,13 @@ def generate_trade_suggestion(league, your_id, partner_id, requested, fc_data):
     selected = [rosters[str(your_id)], rosters[str(partner_id)]]
     directory = {str(p["player_id"]): p for r in selected for p in r["players"]}
     lookup = build_player_value_lookup(fc_data, directory)
-    warnings = []
-    teams = []
-    for roster in selected:
-        players, missing, seen = [], 0, set()
-        for player in roster["players"]:
-            if player.get("position") not in POSITIONS:
-                continue
-            pid = str(player["player_id"])
-            if pid in seen:
-                continue
-            seen.add(pid)
-            valued = lookup(pid)
-            if valued["unranked"] or not isinstance(valued["value"], (int, float)) or not math.isfinite(valued["value"]) or valued["value"] <= 0:
-                missing += 1
-                continue
-            # Slot eligibility comes from the actual roster, not a name fallback.
-            valued["position"] = player["position"]
-            players.append(valued)
-        if len(players) > 30:
-            raise ValueError("Suggestions currently support up to 30 valued offensive players per team.")
-        if missing:
-            warnings.append(f"{roster.get('team_name', 'A team')}: {missing} players lacked usable market values and were excluded.")
-        teams.append(sorted(players, key=lambda p: p["player_id"]))
-    yours, theirs = teams
-    if set(p["player_id"] for p in yours) & set(p["player_id"] for p in theirs):
+    # K and DEF still take up roster space even though they are never trade assets.
+    capacity = len(league["roster_positions"])
+    yours, theirs = [prepare_team(r, lookup, slots, capacity) for r in selected]
+    if yours["active_ids"] & theirs["active_ids"]:
         raise ValueError("The teams contain overlapping players. Reload the league and try again.")
-    if not yours or not theirs:
-        raise RuntimeError("Not enough player valuation data is available for these teams.")
-
-    before = [analyze_roster(team, slots) for team in teams]
+    warnings = [f"{t['team_name']}: {t['missing']} players lacked usable market values and were excluded."
+                for t in (yours, theirs) if t["missing"]]
     market = {pos: [] for pos in POSITIONS}
     for item in fc_data:
         pos = (item.get("player") or {}).get("position")
@@ -115,82 +91,49 @@ def generate_trade_suggestion(league, your_id, partner_id, requested, fc_data):
             market[pos].append(value)
     for values in market.values():
         values.sort()
-    targets = rank_target_positions(before[0], requested, market)
-    depth_ids = [{p["player_id"] for p in analysis["depth"]} for analysis in before]
-
-    # Enumerate packages first, then prioritize exchanges of spare depth. The
-    # cheap value check avoids rebuilding lineups for obviously unsuitable trades.
-    candidates = []
-    for give in combinations(yours, 2):
-        give_total = sum(p["value"] for p in give)
-        for receive in combinations(theirs, 2):
-            receive_total = sum(p["value"] for p in receive)
-            if not within_value_range(give_total, receive_total):
-                continue
-            positions = {p["position"] for p in receive}
-            target_rank = next((i for i, pos in enumerate(targets) if pos in positions), None)
-            if target_rank is None:
-                continue
-            depth = sum(p["player_id"] in depth_ids[0] for p in give) + sum(p["player_id"] in depth_ids[1] for p in receive)
-            candidates.append((target_rank, -depth, give, receive))
-    candidates.sort(key=lambda c: c[:2])
-    limited = len(candidates) > MAX_LINEUP_CHECKS
-    best = None
-    checked = 0
-    for _, _, give, receive in candidates[:MAX_LINEUP_CHECKS]:
-        checked += 1
-        give_ids = {p["player_id"] for p in give}
-        receive_ids = {p["player_id"] for p in receive}
-        after = [
-            analyze_roster([p for p in yours if p["player_id"] not in give_ids] + list(receive), slots),
-            analyze_roster([p for p in theirs if p["player_id"] not in receive_ids] + list(give), slots),
-        ]
-        gains = [after[i]["value"] - before[i]["value"] for i in range(2)]
-        # Both teams must gain starter value without leaving more slots empty.
-        if any(gains[i] <= 0 or after[i]["filled_slots"] < before[i]["filled_slots"] for i in range(2)):
-            continue
-        coverage_lost = False
-        for i in range(2):
-            old_coverage = Counter(s["slot"] for s in before[i]["starters"] if s["player"])
-            new_coverage = Counter(s["slot"] for s in after[i]["starters"] if s["player"])
-            if any(new_coverage[slot] < count for slot, count in old_coverage.items()):
-                coverage_lost = True
-        if coverage_lost:
-            continue
-        target = None
-        for pos in targets:
-            old_values = sorted((s["player"]["value"] for s in before[0]["starters"] if s["player"] and s["player"]["position"] == pos), reverse=True)
-            new_starters = [s["player"] for s in after[0]["starters"] if s["player"] and s["player"]["position"] == pos]
-            new_values = sorted((p["value"] for p in new_starters), reverse=True)
-            if any(p["player_id"] in receive_ids for p in new_starters) and sum(new_values) > sum(old_values):
-                target = pos
-                break
-        if target is None:
-            continue
-        # Prefer the highest-priority need, then benefits shared by both teams.
-        rank = (-targets.index(target), min(gains), sum(gains))
-        if best is None or rank > best[0]:
-            best = (rank, give, receive, target, gains)
-
-    if limited:
-        warnings.append("The search checked the highest-priority packages within its search limit.")
+    targets = rank_target_positions(yours["lineup"], requested, market)
+    best, diagnostics = search_packages(yours, theirs, slots, preferences, targets,
+                                        MAX_CANDIDATE_PAIRS, MAX_LINEUP_CHECKS)
+    if diagnostics["search_limited"]:
+        warnings.append("The search checked a limited selection of packages across the allowed trade formats.")
     common = {
-        "warnings": warnings, "candidates_checked": checked, "search_limited": limited,
-        "value_range": {"min_percent": MIN_GAIN_PERCENT, "max_percent": MAX_GAIN_PERCENT},
+        **diagnostics, "warnings": warnings, "preferences": preferences.as_dict(),
+        "value_range": {"min_percent": preferences.min_gain_percent,
+                        "max_percent": preferences.max_gain_percent},
         "settings": settings,
     }
     if best is None:
         return {**common, "status": "no_match", "suggestion": None,
-                "message": "No suitable two-for-two trade was found among the evaluated packages. Try another team or position."}
-    _, give, receive, target, gains = best
-    evaluation = evaluate_player_values(list(give), list(receive), **settings)
+                "message": "No suitable trade was found among the evaluated packages. Try another team, position, trade style, or value range."}
+    give, receive = best["give"], best["receive"]
+    evaluation = evaluate_player_values(list(give.players), list(receive.players), **settings)
+    your_after, partner_after = best["your_after"], best["partner_after"]
+    cost = give.total + your_after["drop_value"]
+    net_gain = receive.total - cost
+    net_percent = round(net_gain / max(cost, receive.total) * 100, 1)
+    adding_depth = len(receive.players) > len(give.players)
+    style = "add_depth" if adding_depth else "trade_up" if len(give.players) > len(receive.players) else "balanced"
+    target = best["target"]
+    reasons = [
+        (f"You add starting options at {target}." if adding_depth else f"You upgrade a starting option at {target}."),
+        f"Your net value advantage is {net_percent}% after any required cuts.",
+    ]
+    if best["gains"][1] > 0:
+        reasons.append("Your trade partner also improves their projected starting-lineup value.")
+    elif best["gains"][1] < 0:
+        reasons.append("Your trade partner gives up starting-lineup value in this exchange.")
+    # Required counts are separate from suggested names: a user may choose different cuts.
+    moves = {}
+    for side, team, after in (("you", yours, your_after), ("partner", theirs, partner_after)):
+        moves[side] = {key: value for key, value in after.items() if key != "lineup"}
+        moves[side].update(roster_id=team["roster_id"], team_name=team["team_name"])
     return {**common, "status": "ok", "suggestion": {
-        "target_position": target, "evaluation": evaluation,
-        "your_lineup_value_gain": gains[0], "partner_lineup_value_gain": gains[1],
-        "reasons": [
-            f"You improve your starting {target} options while gaining {evaluation['diff_percentage']}% in trade value.",
-            "Your trade partner gains starting-lineup value by exchanging players they can replace.",
-        ],
+        "target_position": target, "trade_style": style,
+        "trade_type": f"{len(give.players)}-for-{len(receive.players)}",
+        "evaluation": evaluation, "net_value_gain": net_gain,
+        "net_advantage_percent": net_percent, "roster_moves": moves,
+        "your_lineup_value_gain": best["gains"][0], "partner_lineup_value_gain": best["gains"][1],
+        "reasons": reasons,
         "method_note": "Lineup improvements use FantasyCalc market values, not projected points. Injuries, bye weeks, and custom scoring bonuses are not modeled.",
     }}
 
