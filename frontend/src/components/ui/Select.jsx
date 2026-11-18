@@ -1,11 +1,12 @@
 import * as RadixSelect from "@radix-ui/react-select";
 import "./Select.css";
 
-export default function Select({ id, value, onChange, disabled, placeholder, children }) {
-  const selectValue = value !== undefined && value !== null && value !== "" ? String(value) : undefined;
+export default function Select({ id, value, onChange, disabled, placeholder, children, ...triggerProps }) {
+  // An empty string keeps this controlled and clears a previous selection.
+  const selectValue = value == null ? "" : String(value);
   return (
     <RadixSelect.Root value={selectValue} onValueChange={onChange} disabled={disabled}>
-      <RadixSelect.Trigger id={id} className="select-trigger">
+      <RadixSelect.Trigger id={id} className="select-trigger" {...triggerProps}>
         <RadixSelect.Value placeholder={placeholder ?? "Select…"} />
         <RadixSelect.Icon className="select-icon">▾</RadixSelect.Icon>
       </RadixSelect.Trigger>
