@@ -5,6 +5,7 @@ node_modules/
 venv/
 ENV/
 env/
+.vscode
 
 # Environment secrets
 .env

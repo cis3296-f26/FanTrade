@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchJson } from "../../lib/api";
 import { useAuth } from "../../lib/AuthContext";
 import useScrollReveal from "../../hooks/useScrollReveal";
@@ -12,6 +12,11 @@ function formatPoints(value) {
   return value !== null && value !== undefined && Number.isFinite(points)
     ? points.toFixed(1)
     : "—";
+}
+
+function formatRank(value) {
+  const rank = Number(value);
+  return Number.isInteger(rank) && rank > 0 ? `#${rank}` : "—";
 }
 
 export default function AvailablePlayersPage() {
@@ -29,6 +34,12 @@ export default function AvailablePlayersPage() {
   const [trendType, setTrendType] = useState("add");
   const [lookbackHours, setLookbackHours] = useState("24");
   const [trendingPlayers, setTrendingPlayers] = useState([]);
+  const [selectedTrendingPlayer, setSelectedTrendingPlayer] = useState(null);
+  const [playerDetails, setPlayerDetails] = useState(null);
+  const [loadingPlayerDetails, setLoadingPlayerDetails] = useState(false);
+  const [playerDetailsError, setPlayerDetailsError] = useState("");
+  const [playerDetailsAttempt, setPlayerDetailsAttempt] = useState(0);
+  const [failedPlayerImageId, setFailedPlayerImageId] = useState(null);
   const [loadingLeagues, setLoadingLeagues] = useState(false);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [loadingTrending, setLoadingTrending] = useState(false);
@@ -36,8 +47,42 @@ export default function AvailablePlayersPage() {
   const [trendingError, setTrendingError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [trendingAttempt, setTrendingAttempt] = useState(0);
+  const playerDialogRef = useRef(null);
 
   useScrollReveal();
+
+  useEffect(() => {
+    const dialog = playerDialogRef.current;
+    if (!dialog) return;
+
+    if (selectedTrendingPlayer && !dialog.open) {
+      dialog.showModal();
+    } else if (!selectedTrendingPlayer && dialog.open) {
+      dialog.close();
+    }
+  }, [selectedTrendingPlayer]);
+
+  useEffect(() => {
+    if (!selectedTrendingPlayer) return undefined;
+
+    const controller = new AbortController();
+    async function loadPlayerDetails() {
+      try {
+        const data = await fetchJson(
+          `/api/sleeper/players/${encodeURIComponent(selectedTrendingPlayer.player_id)}/details`,
+          { signal: controller.signal }
+        );
+        if (!controller.signal.aborted) setPlayerDetails(data);
+      } catch (requestError) {
+        if (!controller.signal.aborted) setPlayerDetailsError(requestError.message);
+      } finally {
+        if (!controller.signal.aborted) setLoadingPlayerDetails(false);
+      }
+    }
+
+    loadPlayerDetails();
+    return () => controller.abort();
+  }, [selectedTrendingPlayer, playerDetailsAttempt]);
 
   const selectedLeague =
     leagues.find((league) => league.league_id === leagueId) ||
@@ -147,6 +192,14 @@ export default function AvailablePlayersPage() {
     loadTrendingPlayers();
     return () => controller.abort();
   }, [activeTab, trendType, lookbackHours, trendingAttempt]);
+
+  function openPlayerDetails(player) {
+    setSelectedTrendingPlayer(player);
+    setPlayerDetails(null);
+    setPlayerDetailsError("");
+    setLoadingPlayerDetails(true);
+    setPlayerDetailsAttempt((current) => current + 1);
+  }
 
   return (
     <div className="available-players-page">
@@ -411,19 +464,25 @@ export default function AvailablePlayersPage() {
                 ) : (
                   <div className="available-player-grid">
                     {trendingPlayers.map((player, index) => (
-                      <article className="available-player-card" key={player.player_id}>
+                      <button
+                        className="available-player-card trending-player-card"
+                        key={player.player_id}
+                        type="button"
+                        aria-label={`View ${player.name} details`}
+                        onClick={() => openPlayerDetails(player)}
+                      >
                         <span className="available-player-rank" aria-label={`Rank ${index + 1}`}>
                           {index + 1}
                         </span>
                         <div>
-                          <h2>{player.name}</h2>
+                          <span className="available-player-name">{player.name}</span>
                           <p>{player.position} <span aria-hidden="true">·</span> {player.team}</p>
                         </div>
-                        <span className="trending-count">
+                        <span className={`trending-count trending-count-${trendType}`}>
                           {player.count}
                           <small>{trendType === "add" ? "adds" : "drops"}</small>
                         </span>
-                      </article>
+                      </button>
                     ))}
                   </div>
                 )
@@ -434,6 +493,121 @@ export default function AvailablePlayersPage() {
             </div>
         </section>
       </main>
+      <dialog
+        ref={playerDialogRef}
+        className="trending-player-dialog"
+        aria-labelledby="trending-player-dialog-title"
+        onClose={() => setSelectedTrendingPlayer(null)}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            event.currentTarget.close();
+          }
+        }}
+      >
+        {selectedTrendingPlayer && (
+          <div className="trending-player-dialog-content">
+            <button
+              className="trending-player-dialog-close"
+              type="button"
+              aria-label="Close player details"
+              onClick={() => playerDialogRef.current?.close()}
+            >
+              ×
+            </button>
+            <div className="trending-player-dialog-photo">
+              {failedPlayerImageId !== selectedTrendingPlayer.player_id &&
+                selectedTrendingPlayer.avatar_url && (
+                  <img
+                    src={selectedTrendingPlayer.avatar_url}
+                    alt={`${selectedTrendingPlayer.name} headshot`}
+                    onError={() => setFailedPlayerImageId(selectedTrendingPlayer.player_id)}
+                  />
+                )}
+              {failedPlayerImageId === selectedTrendingPlayer.player_id ||
+              !selectedTrendingPlayer.avatar_url ? (
+                <span aria-hidden="true">
+                  {selectedTrendingPlayer.name
+                    .split(/\s+/)
+                    .map((part) => part[0])
+                    .join("")
+                    .slice(0, 2)}
+                </span>
+              ) : null}
+            </div>
+            <div className="trending-player-dialog-details">
+              <p className="trending-player-dialog-label">Player profile</p>
+              <h2 id="trending-player-dialog-title">{selectedTrendingPlayer.name}</h2>
+              <p className="trending-player-dialog-meta">
+                {selectedTrendingPlayer.position}
+                <span aria-hidden="true"> · </span>
+                {selectedTrendingPlayer.team}
+              </p>
+              <p className="trending-player-dialog-activity">
+                Trending {trendType === "add" ? "adds" : "drops"}
+                <strong>{selectedTrendingPlayer.count}</strong>
+              </p>
+            </div>
+          </div>
+        )}
+        {loadingPlayerDetails && (
+          <p className="trending-player-details-status" role="status">
+            Loading player stats from Sleeper...
+          </p>
+        )}
+        {playerDetailsError && (
+          <div className="trending-player-details-error">
+            <p role="alert">{playerDetailsError}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setPlayerDetailsError("");
+                setLoadingPlayerDetails(true);
+                setPlayerDetailsAttempt((current) => current + 1);
+              }}
+            >
+              Try again
+            </button>
+          </div>
+        )}
+        {playerDetails && (
+          <div className="trending-player-stats">
+            <div className="trending-player-stat-grid">
+              <div className="trending-player-stat">
+                <span>Expected points</span>
+                <strong>{formatPoints(playerDetails.expected_points)}</strong>
+                <small>This week · PPR</small>
+              </div>
+              <div className="trending-player-stat">
+                <span>Fantasy rank</span>
+                <strong>{formatRank(playerDetails.fantasy_rank)}</strong>
+                <small>Season-to-date · PPR</small>
+              </div>
+              <div className="trending-player-stat">
+                <span>Sleeper search rank</span>
+                <strong>{formatRank(playerDetails.search_rank)}</strong>
+                <small>Search popularity</small>
+              </div>
+            </div>
+            <section className="trending-player-game-log" aria-labelledby="trending-player-game-log-title">
+              <h3 id="trending-player-game-log-title">Recent game log</h3>
+              {playerDetails.game_log.length > 0 ? (
+                <div className="trending-player-game-log-list">
+                  {playerDetails.game_log.map((game) => (
+                    <div className="trending-player-game-log-row" key={game.week}>
+                      <span>Week {game.week}</span>
+                      <strong>{formatPoints(game.points)} pts</strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="trending-player-game-log-empty">
+                  No recent game log is available from Sleeper.
+                </p>
+              )}
+            </section>
+          </div>
+        )}
+      </dialog>
     </div>
   );
 }
