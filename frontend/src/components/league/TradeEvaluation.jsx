@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as ToggleGroup from "@radix-ui/react-toggle-group";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { fetchJson } from "../../lib/api";
 import { useAuth } from "../../lib/AuthContext";
 import Select, { SelectItem } from "../ui/Select";
@@ -394,18 +394,24 @@ function ExperimentalScoringDetails({ details }) {
 export default function TradeEvaluation() {
   const currentYear = new Date().getFullYear();
   const { savedLeagues } = useAuth();
-  const savedSleeperLeagues = savedLeagues.filter(
-    (league) => league.platform === "sleeper"
-  );
+  const [searchParams] = useSearchParams();
+  const espnReference = searchParams.get("espn") ?? "";
+  const initialLeagueId = /^\d{4}:\d+$/.test(espnReference) ? `espn:${espnReference}` : "";
+  const leagueOptions = savedLeagues
+    .filter((league) => ["sleeper", "espn"].includes(league.platform))
+    .map((league) => ({
+      id: `${league.platform}:${league.league_id}`,
+      name: league.platform === "espn" ? `${league.league_name} · ESPN` : league.league_name,
+    }));
 
   // Mode: "fancalc" (standard consensus) or "experimental" (Luke's nflverse model)
   const [calcMode, setCalcMode] = useState("fancalc");
 
   // Optional league roster analysis
-  const [selectedLeagueId, setSelectedLeagueId] = useState("");
+  const [selectedLeagueId, setSelectedLeagueId] = useState(initialLeagueId);
   const [league, setLeague] = useState(null);
   const [selectedRosterId, setSelectedRosterId] = useState("");
-  const [leagueLoading, setLeagueLoading] = useState(false);
+  const [leagueLoading, setLeagueLoading] = useState(Boolean(initialLeagueId));
   const [leagueError, setLeagueError] = useState("");
   const [leagueAttempt, setLeagueAttempt] = useState(0);
   const [selectedPositions, setSelectedPositions] = useState([]);
@@ -436,6 +442,14 @@ export default function TradeEvaluation() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const importedEspnLeague = initialLeagueId && !leagueOptions.some(({ id }) => id === initialLeagueId);
+  if (importedEspnLeague) {
+    leagueOptions.unshift({
+      id: initialLeagueId,
+      name: league && selectedLeagueId === initialLeagueId ? `${league.name} · ESPN` : "Opened ESPN league",
+    });
+  }
+
   const leagueScoreKey = `${selectedLeagueId}|${isDynasty}|${numQbs}|${numTeams}|${ppr}`;
   const hasLeagueRosterPlayers = Boolean(
     league?.rosters.some((roster) => (roster.players ?? []).length > 0)
@@ -459,10 +473,11 @@ export default function TradeEvaluation() {
 
     async function loadLeague() {
       try {
-        const data = await fetchJson(
-          `/api/sleeper/rosters/${encodeURIComponent(selectedLeagueId)}`,
-          { signal: controller.signal }
-        );
+        const [platform, id, espnId] = selectedLeagueId.split(":");
+        const url = platform === "espn"
+          ? `/api/espn/${encodeURIComponent(espnId)}?season=${encodeURIComponent(id)}&calculator=1`
+          : `/api/sleeper/rosters/${encodeURIComponent(id)}`;
+        const data = await fetchJson(url, { signal: controller.signal });
 
         if (!Array.isArray(data.rosters)) {
           throw new Error("The server did not return valid roster data.");
@@ -751,11 +766,11 @@ export default function TradeEvaluation() {
 
       <section className="trade-league-analysis" aria-labelledby="trade-league-heading">
         <h2 id="trade-league-heading">Analyze a league <span>Optional</span></h2>
-        {savedSleeperLeagues.length > 0 ? (
+        {leagueOptions.length > 0 ? (
           <>
             <div className="trade-league-controls">
               <div className="field">
-                <label htmlFor="trade-league-select">Saved Sleeper league</label>
+                <label htmlFor="trade-league-select">League</label>
                 <Select
                   id="trade-league-select"
                   value={selectedLeagueId}
@@ -763,13 +778,8 @@ export default function TradeEvaluation() {
                   disabled={leagueLoading || loading}
                   onChange={handleLeagueChange}
                 >
-                  {savedSleeperLeagues.map((savedLeague) => (
-                    <SelectItem
-                      key={savedLeague.league_id}
-                      value={savedLeague.league_id}
-                    >
-                      {savedLeague.league_name}
-                    </SelectItem>
+                  {leagueOptions.map(({ id, name }) => (
+                    <SelectItem key={id} value={id}>{name}</SelectItem>
                   ))}
                 </Select>
               </div>
@@ -809,6 +819,11 @@ export default function TradeEvaluation() {
                   Try again
                 </button>
               </div>
+            )}
+            {league?.unmapped_count > 0 && (
+              <p className="muted" role="status">
+                {league.unmapped_count} roster entries could not be matched to the player directory.
+              </p>
             )}
             {league && league.rosters.length === 0 && (
               <p className="muted">This league has no rosters to analyze.</p>
@@ -869,8 +884,8 @@ export default function TradeEvaluation() {
           </>
         ) : (
           <p className="muted">
-            Save a Sleeper league from <Link to="/search">League View</Link> to load rosters here.
-            {" "}You need to sign in, then save a league.
+            Open a Sleeper, Yahoo, or public ESPN league from <Link to="/search">League View</Link>,
+            or sign in to use a saved league.
           </p>
         )}
       </section>

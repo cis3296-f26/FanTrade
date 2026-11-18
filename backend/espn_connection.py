@@ -1,5 +1,11 @@
 import datetime
+import re
+from collections import defaultdict
+from unicodedata import normalize
+
 import requests
+
+from sleeper_connection import NFL_TEAMS
 
 ESPN_BASE_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{season}/segments/0/leagues/{league_id}"
 
@@ -143,6 +149,63 @@ def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = No
         "season": season,
         "total_rosters": len(teams),
         "teams": teams
+    }
+
+
+def _player_name_key(name):
+    ascii_name = normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
+    without_suffix = re.sub(r"\s+(jr|sr|ii|iii|iv)\.?$", "", ascii_name.strip())
+    return re.sub(r"[^a-z0-9]", "", without_suffix)
+
+
+def espn_trade_rosters(league, player_directory):
+    """Map current ESPN roster entries to the calculator's player IDs."""
+    candidates = defaultdict(list)
+    names = defaultdict(list)
+    for player_id, player in player_directory.items():
+        position = player.get("position")
+        if player.get("espn_id"):
+            candidates[(str(player["espn_id"]), position)].append(player_id)
+        if player.get("full_name"):
+            names[(_player_name_key(player["full_name"]), position)].append(player_id)
+
+    defense_ids = {
+        name.rsplit(" ", 1)[-1].casefold(): team
+        for team, name in NFL_TEAMS.items()
+        if team in player_directory
+    }
+
+    rosters = []
+    unmapped_count = 0
+    for team in league["teams"]:
+        players = []
+        for player in team["players"]:
+            position = player["position"]
+            if position == "DEF":
+                nickname = player["name"].removesuffix(" D/ST").strip().casefold()
+                player_id = defense_ids.get(nickname)
+            else:
+                matches = candidates[(player["player_id"], position)]
+                if not matches:
+                    matches = names[(_player_name_key(player["name"]), position)]
+                    if len(matches) == 1 and player_directory[matches[0]].get("espn_id"):
+                        matches = []
+                player_id = matches[0] if len(matches) == 1 else None
+            if not player_id:
+                unmapped_count += 1
+                continue
+            players.append({
+                **player,
+                "player_id": player_id,
+                "team": player_directory[player_id].get("team"),
+            })
+        rosters.append({**team, "roster_id": str(team["team_id"]), "players": players})
+    return {
+        "league_id": league["league_id"],
+        "name": league["name"],
+        "season": league["season"],
+        "rosters": rosters,
+        "unmapped_count": unmapped_count,
     }
 
 

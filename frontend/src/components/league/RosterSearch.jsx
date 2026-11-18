@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { fetchJson } from "../../lib/api";
 import TeamRoster from "./TeamRoster";
 import TradeSuggestion from "./TradeSuggestion";
@@ -134,6 +135,9 @@ export default function RosterSearch({ leagueId, platform = "sleeper", onSave, i
             onClick={() => setAttempt((current) => current + 1)}>
             Refresh rosters
           </button>
+          <Link className="btn btn-secondary" to={`/trade?espn=${encodeURIComponent(leagueId)}`}>
+            Open in Trade Calculator
+          </Link>
           {onSave && (
             <button type="button" className="btn btn-secondary"
               disabled={isSaved || saving} onClick={() => onSave(league)}>

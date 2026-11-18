@@ -23,7 +23,7 @@ from sleeper_connection import (
     get_all_nfl_teams,
     search_nfl_players,
 )
-from espn_connection import get_espn_league
+from espn_connection import espn_trade_rosters, get_espn_league
 from nfl_pbp_connection import get_play_by_play_data, get_summary_stats
 
 from db import get_db
@@ -132,6 +132,12 @@ def espn_demo(league_id=None):
     target_id = league_id or request.args.get("league_id", "16016")
     season = request.args.get("season", type=int)
     result = get_espn_league(target_id, season=season)
+    if "error" not in result and request.args.get("calculator") == "1":
+        players = _load_players()
+        if players:
+            result = espn_trade_rosters(result, players)
+        else:
+            result = {"error": "Player directory is unavailable. Try again.", "status_code": 503}
     response = jsonify(result)
     response.headers["Cache-Control"] = "no-store"
     return response, result.get("status_code", 502) if "error" in result else 200
