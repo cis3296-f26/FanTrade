@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import Select, { SelectItem } from "../ui/Select";
 import "./PlayerList.css";
 
 const POSITIONS = ["WR", "TE", "RB"];
@@ -71,17 +72,17 @@ export default function PlayerList({ players, playerA, playerB, onAssign, onDrag
           onChange={(e) => setSearch(e.target.value)}
           aria-label="Search players"
         />
-        <select
-          className="player-list-pos"
+        <Select
           value={position}
-          onChange={(e) => setPosition(e.target.value)}
+          onChange={setPosition}
+          placeholder="All"
           aria-label="Filter by position"
         >
-          <option value="">All</option>
+          <SelectItem value="">All</SelectItem>
           {POSITIONS.map((pos) => (
-            <option key={pos} value={pos}>{pos}</option>
+            <SelectItem key={pos} value={pos}>{pos}</SelectItem>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="player-list-scroll" role="listbox" aria-label="Player list">
