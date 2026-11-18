@@ -84,112 +84,9 @@ export default function Navbar() {
 
   return (
     <nav className={`navbar${overHero ? " navbar--over-hero" : ""}${open ? " navbar--open" : ""}`} ref={navRef}>
-      <div className="navbar-topbar">
-        <div className="navbar-logo" onClick={() => handleNav("/")}>
-          <img src={helmet} alt="" className="navbar-helmet" aria-hidden="true" />
-          <span>FanTrade.</span>
-        </div>
-
-        <div className="navbar-account">
-          {user ? (
-            <>
-              <span className="navbar-username">Signed in as {user.username}</span>
-              <button
-                type="button"
-                className="btn btn-ghost navbar-account-button"
-                onClick={handleLogout}
-                disabled={loading}
-              >
-                Sign out
-              </button>
-              {accountError && (
-                <p className="navbar-account-error navbar-account-error--signed-in" role="alert">
-                  {accountError}
-                </p>
-              )}
-            </>
-          ) : (
-            <Popover.Root open={accountOpen} onOpenChange={handleAccountOpenChange}>
-              <Popover.Trigger asChild>
-                <button type="button" className="btn btn-ghost navbar-account-button">
-                  {loading ? "Sign in" : "Sign in / Register"}
-                </button>
-              </Popover.Trigger>
-
-              <Popover.Portal>
-                <Popover.Content
-                  className="navbar-account-panel"
-                  align="end"
-                  sideOffset={12}
-                  onOpenAutoFocus={(e) => e.preventDefault()}
-                >
-                  <form onSubmit={handleAccountSubmit}>
-                    <h2>{accountMode === "register" ? "Create an account" : "Sign in"}</h2>
-
-                    <label htmlFor="navbar-account-username">Username</label>
-                    <input
-                      id="navbar-account-username"
-                      autoComplete="username"
-                      minLength={3}
-                      maxLength={32}
-                      required
-                      value={username}
-                      onChange={(event) => setUsername(event.target.value)}
-                    />
-
-                    <label htmlFor="navbar-account-password">Password</label>
-                    <input
-                      id="navbar-account-password"
-                      type="password"
-                      autoComplete={accountMode === "register" ? "new-password" : "current-password"}
-                      minLength={8}
-                      maxLength={128}
-                      required
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                    />
-
-                    {(accountError || authError) && (
-                      <p className="navbar-account-error" role="alert">
-                        {accountError || authError}
-                      </p>
-                    )}
-
-                    <button type="submit" className="btn btn-primary btn-md" disabled={accountBusy}>
-                      {accountBusy
-                        ? "Please wait..."
-                        : accountMode === "register"
-                          ? "Create account"
-                          : "Sign in"}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="navbar-account-mode-button"
-                      onClick={() => {
-                        setAccountMode((mode) => (mode === "register" ? "login" : "register"));
-                        setAccountError("");
-                      }}
-                    >
-                      {accountMode === "register"
-                        ? "Already have an account? Sign in"
-                        : "New here? Create an account"}
-                    </button>
-                  </form>
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
-          )}
-        </div>
-
-        <button
-          className="navbar-hamburger"
-          aria-label="Toggle menu"
-          aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
-        >
-          <span className={`navbar-hamburger-icon${open ? " navbar-hamburger-icon--open" : ""}`} />
-        </button>
+      <div className="navbar-logo" onClick={() => handleNav("/")}>
+        <img src={helmet} alt="" className="navbar-helmet" aria-hidden="true" />
+        <span>FanTrade.</span>
       </div>
 
       <ul className={`navbar-links${open ? " navbar-links--open" : ""}`}>
@@ -204,6 +101,107 @@ export default function Navbar() {
           </li>
         ))}
       </ul>
+
+      <div className="navbar-account">
+        {user ? (
+          <>
+            <span className="navbar-username">Signed in as {user.username}</span>
+            <button
+              type="button"
+              className="btn btn-ghost navbar-account-button"
+              onClick={handleLogout}
+              disabled={loading}
+            >
+              Sign out
+            </button>
+            {accountError && (
+              <p className="navbar-account-error navbar-account-error--signed-in" role="alert">
+                {accountError}
+              </p>
+            )}
+          </>
+        ) : (
+          <Popover.Root open={accountOpen} onOpenChange={handleAccountOpenChange}>
+            <Popover.Trigger asChild>
+              <button type="button" className="btn btn-ghost navbar-account-button">
+                {loading ? "Sign in" : "Sign in / Register"}
+              </button>
+            </Popover.Trigger>
+
+            <Popover.Portal>
+              <Popover.Content
+                className="navbar-account-panel"
+                align="end"
+                sideOffset={12}
+                onOpenAutoFocus={(e) => e.preventDefault()}
+              >
+                <form onSubmit={handleAccountSubmit}>
+                  <h2>{accountMode === "register" ? "Create an account" : "Sign in"}</h2>
+
+                  <label htmlFor="navbar-account-username">Username</label>
+                  <input
+                    id="navbar-account-username"
+                    autoComplete="username"
+                    minLength={3}
+                    maxLength={32}
+                    required
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                  />
+
+                  <label htmlFor="navbar-account-password">Password</label>
+                  <input
+                    id="navbar-account-password"
+                    type="password"
+                    autoComplete={accountMode === "register" ? "new-password" : "current-password"}
+                    minLength={8}
+                    maxLength={128}
+                    required
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+
+                  {(accountError || authError) && (
+                    <p className="navbar-account-error" role="alert">
+                      {accountError || authError}
+                    </p>
+                  )}
+
+                  <button type="submit" className="btn btn-primary btn-md" disabled={accountBusy}>
+                    {accountBusy
+                      ? "Please wait..."
+                      : accountMode === "register"
+                        ? "Create account"
+                        : "Sign in"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="navbar-account-mode-button"
+                    onClick={() => {
+                      setAccountMode((mode) => (mode === "register" ? "login" : "register"));
+                      setAccountError("");
+                    }}
+                  >
+                    {accountMode === "register"
+                      ? "Already have an account? Sign in"
+                      : "New here? Create an account"}
+                  </button>
+                </form>
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+        )}
+
+        <button
+          className="navbar-hamburger"
+          aria-label="Toggle menu"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span className={`navbar-hamburger-icon${open ? " navbar-hamburger-icon--open" : ""}`} />
+        </button>
+      </div>
     </nav>
   );
 }
