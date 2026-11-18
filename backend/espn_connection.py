@@ -1,5 +1,12 @@
 import datetime
+import json
+import re
+from collections import defaultdict
+from unicodedata import normalize
+
 import requests
+
+from sleeper_connection import NFL_TEAMS
 
 ESPN_BASE_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{season}/segments/0/leagues/{league_id}"
 
@@ -14,6 +21,23 @@ ESPN_POSITION_MAP = {
 }
 
 
+ESPN_PRO_TEAMS = {
+    1: "ATL", 2: "BUF", 3: "CHI", 4: "CIN", 5: "CLE", 6: "DAL", 7: "DEN",
+    8: "DET", 9: "GB", 10: "TEN", 11: "IND", 12: "KC", 13: "LV", 14: "LAR",
+    15: "MIA", 16: "MIN", 17: "NE", 18: "NO", 19: "NYG", 20: "NYJ", 21: "PHI",
+    22: "ARI", 23: "PIT", 24: "LAC", 25: "SF", 26: "SEA", 27: "TB", 28: "WAS",
+    29: "CAR", 30: "JAX", 33: "BAL", 34: "HOU",
+}
+ESPN_AVAILABLE_STATUSES = ("FREEAGENT", "WAIVERS")
+
+ESPN_LINEUP_SLOTS = {
+    "0": "QB", "2": "RB", "3": "WRRB_FLEX", "4": "WR", "5": "REC_FLEX",
+    "6": "TE", "7": "SUPER_FLEX", "16": "DEF", "17": "K", "23": "FLEX",
+}
+ESPN_RESERVE_SLOTS = {"20", "21"}
+ESPN_RECEPTIONS_STAT_ID = 53
+
+
 def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = None, swid: str = None):
     """
     Fetches league info, teams, and active rosters from ESPN Fantasy Football v3 API.
@@ -21,8 +45,8 @@ def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = No
     Private leagues require espn_s2 and swid cookie strings.
     """
     clean_id = str(league_id).strip()
-    if not clean_id:
-        return {"error": "ESPN league ID cannot be empty"}
+    if not clean_id.isascii() or not clean_id.isdecimal():
+        return {"error": "Enter a numeric ESPN league ID.", "status_code": 400}
 
     # Default to current season
     if not season:
@@ -51,12 +75,12 @@ def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = No
 
     if resp.status_code in (401, 403):
         return {
-            "error": "This ESPN league is private. Pass 'espn_s2' and 'swid' cookies to view it.",
+            "error": "This ESPN league requires sign-in. FanTrade currently supports publicly viewable ESPN leagues.",
             "status_code": resp.status_code
         }
     elif resp.status_code == 404:
         return {
-            "error": f"ESPN league '{clean_id}' was not found for season {season}. If this league is private, ESPN blocks access with a 404 unless you pass 'espn_s2' and 'SWID' cookies, or toggle 'Make League Viewable to Public' in ESPN league settings.",
+            "error": f"ESPN league '{clean_id}' was not found for season {season}. Check the league ID, season, and public viewability setting.",
             "status_code": 404
         }
     elif resp.status_code != 200:
@@ -65,7 +89,12 @@ def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = No
             "status_code": resp.status_code
         }
 
-    data = resp.json()
+    try:
+        data = resp.json()
+    except ValueError:
+        return {"error": "ESPN did not return league data.", "status_code": 502}
+    if not isinstance(data, dict) or not isinstance(data.get("teams"), list):
+        return {"error": "ESPN did not return a team list.", "status_code": 502}
 
     # 1. League name
     settings = data.get("settings", {})
@@ -115,6 +144,7 @@ def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = No
                 "player_id": str(entry.get("playerId") or pinfo.get("id", "")),
                 "name": pinfo.get("fullName", "Unknown Player"),
                 "position": position,
+                "injury_status": (pinfo.get("injuryStatus") or "Healthy").replace("ACTIVE", "Healthy"),
                 "is_starter": is_starter
             })
 
@@ -136,7 +166,160 @@ def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = No
         "name": league_name,
         "season": season,
         "total_rosters": len(teams),
-        "teams": teams
+        "teams": teams,
+        "rules": {
+            "lineup_slot_counts": (settings.get("rosterSettings") or {}).get("lineupSlotCounts"),
+            "num_teams": settings.get("size"),
+            "keeper_count": (settings.get("draftSettings") or {}).get("keeperCount"),
+            "future_keeper_count": (settings.get("draftSettings") or {}).get("keeperCountFuture"),
+            "scoring_type": (settings.get("scoringSettings") or {}).get("scoringType"),
+            "scoring_items": (settings.get("scoringSettings") or {}).get("scoringItems"),
+        },
+    }
+
+
+def get_espn_available_players(league_id, season):
+    """Return ESPN's current league-specific free agents and waiver claims pool."""
+    if not league_id.isascii() or not league_id.isdecimal():
+        return {"error": "Enter a numeric ESPN league ID.", "status_code": 400}
+
+    filters = {"players": {
+        "filterStatus": {"value": list(ESPN_AVAILABLE_STATUSES)},
+        "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
+        "limit": 2000,
+    }}
+    try:
+        response = requests.get(
+            ESPN_BASE_URL.format(season=season, league_id=league_id),
+            params={"view": "kona_player_info"},
+            headers={"Accept": "application/json", "X-Fantasy-Filter": json.dumps(filters)},
+            timeout=15,
+        )
+        if response.status_code in (401, 403, 404):
+            return {
+                "error": "Could not open the ESPN player pool. Check the season and league's public viewability.",
+                "status_code": response.status_code,
+            }
+        response.raise_for_status()
+        data = response.json()
+    except (requests.RequestException, ValueError):
+        return {"error": "Could not load available players from ESPN. Try again.", "status_code": 502}
+
+    if not isinstance(data, dict) or not isinstance(data.get("players"), list):
+        return {"error": "ESPN did not return an available-player list.", "status_code": 502}
+
+    players = []
+    for entry in data["players"]:
+        status = entry.get("status")
+        player = entry.get("player") or {}
+        position = ESPN_POSITION_MAP.get(player.get("defaultPositionId"))
+        player_id = entry.get("id")
+        if status not in ESPN_AVAILABLE_STATUSES or not position or not player_id:
+            continue
+        players.append({
+            "player_id": str(player_id),
+            "name": player.get("fullName") or f"Player {player_id}",
+            "position": position,
+            "team": ESPN_PRO_TEAMS.get(player.get("proTeamId"), "FA"),
+            "injury_status": (player.get("injuryStatus") or "Healthy").replace("ACTIVE", "Healthy"),
+            "availability": status,
+            "waiver_process_date": entry.get("waiverProcessDate") if status == "WAIVERS" else None,
+            "percent_rostered": (player.get("ownership") or {}).get("percentOwned"),
+        })
+    return {"league_id": league_id, "season": season, "players": players}
+
+
+def _player_name_key(name):
+    ascii_name = normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
+    without_suffix = re.sub(r"\s+(jr|sr|ii|iii|iv)\.?$", "", ascii_name.strip())
+    return re.sub(r"[^a-z0-9]", "", without_suffix)
+
+
+def espn_trade_rosters(league, player_directory):
+    """Map current ESPN roster entries to the calculator's player IDs."""
+    candidates = defaultdict(list)
+    names = defaultdict(list)
+    for player_id, player in player_directory.items():
+        position = player.get("position")
+        if player.get("espn_id"):
+            candidates[(str(player["espn_id"]), position)].append(player_id)
+        if player.get("full_name"):
+            names[(_player_name_key(player["full_name"]), position)].append(player_id)
+
+    defense_ids = {
+        name.rsplit(" ", 1)[-1].casefold(): team
+        for team, name in NFL_TEAMS.items()
+        if team in player_directory
+    }
+
+    rosters = []
+    unmapped_count = 0
+    for team in league["teams"]:
+        players = []
+        for player in team["players"]:
+            position = player["position"]
+            if position == "DEF":
+                nickname = player["name"].removesuffix(" D/ST").strip().casefold()
+                player_id = defense_ids.get(nickname)
+            else:
+                matches = candidates[(player["player_id"], position)]
+                if not matches:
+                    matches = names[(_player_name_key(player["name"]), position)]
+                    if len(matches) == 1 and player_directory[matches[0]].get("espn_id"):
+                        matches = []
+                player_id = matches[0] if len(matches) == 1 else None
+            if not player_id:
+                unmapped_count += 1
+                continue
+            players.append({
+                **player,
+                "player_id": player_id,
+                "full_name": player_directory[player_id].get("full_name") or player["name"],
+                "team": player_directory[player_id].get("team"),
+            })
+        rosters.append({**team, "roster_id": str(team["team_id"]), "players": players})
+    return {
+        "league_id": league["league_id"],
+        "name": league["name"],
+        "season": league["season"],
+        "rosters": rosters,
+        "unmapped_count": unmapped_count,
+    }
+
+
+def espn_suggestion_league(league, player_directory):
+    """Translate ESPN rules to the roster and scoring inputs the suggestion engine uses."""
+    rules = league.get("rules", {})
+    if rules.get("keeper_count") != 0 or rules.get("future_keeper_count") not in (None, 0):
+        raise ValueError("ESPN suggestions currently support redraft leagues.")
+
+    counts = rules.get("lineup_slot_counts")
+    slots = []
+    if not isinstance(counts, dict):
+        raise ValueError("ESPN did not return lineup settings for this league.")
+    for slot_id, count in counts.items():
+        if type(count) is not int or count < 0:
+            raise ValueError("ESPN returned invalid lineup settings.")
+        if not count or slot_id in ESPN_RESERVE_SLOTS:
+            continue
+        if slot_id not in ESPN_LINEUP_SLOTS or count > 12:
+            raise ValueError("This ESPN league's starting lineup format is not supported yet.")
+        slots.extend([ESPN_LINEUP_SLOTS[slot_id]] * count)
+
+    scoring_items = rules.get("scoring_items")
+    if rules.get("scoring_type") != "H2H_POINTS" or not isinstance(scoring_items, list) or not scoring_items:
+        raise ValueError("This ESPN league's scoring format is not supported yet.")
+    receptions = [item for item in scoring_items if item.get("statId") == ESPN_RECEPTIONS_STAT_ID]
+    if len(receptions) > 1 or any(item.get("pointsOverrides") for item in receptions):
+        raise ValueError("ESPN suggestions do not support position-specific reception scoring.")
+    ppr = receptions[0].get("points") if receptions else 0
+    result = espn_trade_rosters(league, player_directory)
+    return {
+        **result,
+        "total_rosters": len(result["rosters"]),
+        "roster_positions": slots,
+        "settings": {"type": 0, "num_teams": rules.get("num_teams")},
+        "scoring_settings": {"rec": ppr},
     }
 
 

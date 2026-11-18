@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { fetchJson } from "../../lib/api";
 import { useAuth } from "../../lib/AuthContext";
 import useScrollReveal from "../../hooks/useScrollReveal";
@@ -22,12 +23,20 @@ function formatRank(value) {
 
 export default function AvailablePlayersPage() {
   const { savedLeagues } = useAuth();
-  const savedSleeperLeagues = savedLeagues.filter(
-    (league) => league.platform === "sleeper"
+  const [searchParams] = useSearchParams();
+  const espnReference = searchParams.get("espn") ?? "";
+  const [openedEspnLeague, setOpenedEspnLeague] = useState(
+    /^\d{4}:\d+$/.test(espnReference) ? espnReference : ""
   );
-  const [username, setUsername] = useState("");
+  const leagueOptions = savedLeagues.filter(({ platform }) => ["sleeper", "espn"].includes(platform));
+  if (openedEspnLeague && !leagueOptions.some(({ league_id }) => league_id === openedEspnLeague)) {
+    leagueOptions.unshift({ league_id: openedEspnLeague, league_name: "Opened league", platform: "espn" });
+  }
+  const [leagueSearch, setLeagueSearch] = useState("");
   const [leagues, setLeagues] = useState([]);
-  const [leagueId, setLeagueId] = useState("");
+  const [leagueId, setLeagueId] = useState(openedEspnLeague);
+  const [availability, setAvailability] = useState("");
+  const isEspn = /^\d{4}:\d+$/.test(leagueId);
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("");
   const [players, setPlayers] = useState([]);
@@ -87,12 +96,52 @@ export default function AvailablePlayersPage() {
 
   const selectedLeague =
     leagues.find((league) => league.league_id === leagueId) ||
-    savedSleeperLeagues.find((league) => league.league_id === leagueId);
+    leagueOptions.find((league) => league.league_id === leagueId);
+  const sleeperSearch = isEspn ? "" : search;
+  const sleeperPosition = isEspn ? "" : position;
+  const filteredPlayers = isEspn
+    ? players.filter((player) =>
+        (!availability || player.availability === availability) &&
+        (!position || player.position === position) &&
+        player.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : players;
+  const visiblePlayers = filteredPlayers.slice(0, 100);
+
+  function selectLeague(value) {
+    setLeagueId(value);
+    setPlayers([]);
+    setAvailability("");
+    setError("");
+    setAttempt((current) => current + 1);
+  }
 
   async function handleFindLeagues(event) {
     event.preventDefault();
-    const cleanUsername = username.trim();
-    if (!cleanUsername || loadingLeagues) return;
+    const input = leagueSearch.trim();
+    if (!input || loadingLeagues) return;
+
+    if (/^https?:|[./]espn\.com|^fantasy\.espn\.com/i.test(input)) {
+      try {
+        const url = new URL(input.startsWith("fantasy.espn.com/") ? `https://${input}` : input);
+        const id = url.searchParams.get("leagueId");
+        const today = new Date();
+        const season = url.searchParams.get("seasonId") ??
+          String(today.getFullYear() - Number(today.getMonth() < 7));
+        if (url.origin !== "https://fantasy.espn.com" ||
+            url.pathname.replace(/\/$/, "") !== "/football/league" ||
+            !/^\d+$/.test(id ?? "") || !/^\d{4}$/.test(season)) {
+          throw new Error();
+        }
+
+        const reference = `${season}:${id}`;
+        setOpenedEspnLeague(reference);
+        selectLeague(reference);
+      } catch {
+        selectLeague("");
+        setError("Enter a public ESPN Fantasy Football League Office link.");
+      }
+      return;
+    }
 
     setLoadingLeagues(true);
     setError("");
@@ -102,7 +151,7 @@ export default function AvailablePlayersPage() {
 
     try {
       const data = await fetchJson(
-        `/api/sleeper?username=${encodeURIComponent(cleanUsername)}`
+        `/api/sleeper?username=${encodeURIComponent(input)}`
       );
       if (!Array.isArray(data.leagues)) {
         throw new Error("The server did not return a valid league list.");
@@ -131,17 +180,18 @@ export default function AvailablePlayersPage() {
       setError("");
 
       const params = new URLSearchParams();
-      const cleanSearch = search.trim();
+      const cleanSearch = sleeperSearch.trim();
       if (cleanSearch) params.set("q", cleanSearch);
-      if (position) params.set("position", position);
+      if (sleeperPosition) params.set("position", sleeperPosition);
       const query = params.toString();
       const suffix = query ? `?${query}` : "";
 
       try {
-        const data = await fetchJson(
-          `/api/sleeper/available-players/${encodeURIComponent(leagueId)}${suffix}`,
-          { signal: controller.signal }
-        );
+        const [season, espnId] = isEspn ? leagueId.split(":") : [];
+        const url = isEspn
+          ? `/api/espn/available-players/${encodeURIComponent(espnId)}?season=${encodeURIComponent(season)}`
+          : `/api/sleeper/available-players/${encodeURIComponent(leagueId)}${suffix}`;
+        const data = await fetchJson(url, { signal: controller.signal });
         if (!Array.isArray(data.players)) {
           throw new Error("The server did not return a valid player list.");
         }
@@ -151,13 +201,13 @@ export default function AvailablePlayersPage() {
       } finally {
         if (!controller.signal.aborted) setLoadingPlayers(false);
       }
-    }, search.trim() ? 250 : 0);
+    }, sleeperSearch.trim() ? 250 : 0);
 
     return () => {
       window.clearTimeout(debounce);
       controller.abort();
     };
-  }, [activeTab, leagueId, position, search, attempt]);
+  }, [activeTab, leagueId, isEspn, sleeperPosition, sleeperSearch, attempt]);
 
   useEffect(() => {
     if (activeTab !== "trending") {
@@ -208,7 +258,7 @@ export default function AvailablePlayersPage() {
         <section aria-labelledby="available-players-heading">
           <h1 id="available-players-heading">Available Players</h1>
           <p className="available-players-intro">
-            Find unrostered players ranked by their expected weekly points, or see who is trending on Sleeper.
+            Find free agents and waiver players for your league, or see who is trending on Sleeper.
           </p>
 
           <div className="available-tabs" role="tablist" aria-label="Player lists">
@@ -244,39 +294,35 @@ export default function AvailablePlayersPage() {
           >
               <form className="available-league-form" onSubmit={handleFindLeagues}>
             <div className="available-field">
-              <label htmlFor="available-sleeper-username">Sleeper username</label>
+              <label htmlFor="available-league-search">Sleeper username or public ESPN league link</label>
               <input
-                id="available-sleeper-username"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
-                placeholder="Enter a username"
+                id="available-league-search"
+                value={leagueSearch}
+                onChange={(event) => setLeagueSearch(event.target.value)}
+                placeholder="Enter a Sleeper username or paste an ESPN league link"
                 autoCapitalize="none"
                 spellCheck={false}
                 disabled={loadingLeagues}
                 required
               />
             </div>
-            <button type="submit" disabled={loadingLeagues || !username.trim()}>
+            <button type="submit" disabled={loadingLeagues || !leagueSearch.trim()}>
               {loadingLeagues ? "Finding leagues..." : "Find leagues"}
             </button>
           </form>
 
-          {savedSleeperLeagues.length > 0 && (
+          {leagueOptions.length > 0 && (
             <div className="available-field available-saved-leagues">
-              <label htmlFor="available-saved-league">Or choose a saved league</label>
+              <label htmlFor="available-saved-league">Choose a saved or opened league</label>
               <Select
                 id="available-saved-league"
-                value={leagueId}
-                onChange={(val) => {
-                  setLeagueId(val);
-                  setError("");
-                  setAttempt((current) => current + 1);
-                }}
-                placeholder="Select a saved league"
+                value={leagueOptions.some((league) => league.league_id === leagueId) ? leagueId : ""}
+                onChange={(val) => selectLeague(val)}
+                placeholder="Select a league"
               >
-                {savedSleeperLeagues.map((league) => (
+                {leagueOptions.map((league) => (
                   <SelectItem key={league.league_id} value={league.league_id}>
-                    {league.league_name}
+                    {league.league_name}{league.platform === "espn" ? " · ESPN" : ""}
                   </SelectItem>
                 ))}
               </Select>
@@ -288,12 +334,8 @@ export default function AvailablePlayersPage() {
               <label htmlFor="available-league">Choose a league</label>
               <Select
                 id="available-league"
-                value={leagueId}
-                onChange={(val) => {
-                  setLeagueId(val);
-                  setError("");
-                  setAttempt((current) => current + 1);
-                }}
+                value={leagues.some((league) => league.league_id === leagueId) ? leagueId : ""}
+                onChange={(val) => selectLeague(val)}
                 placeholder="Select a league"
               >
                 {leagues.map((league) => (
@@ -307,7 +349,7 @@ export default function AvailablePlayersPage() {
 
           {selectedLeague && (
             <p className="available-selected-league" role="status">
-              Showing free agents for {selectedLeague.name || selectedLeague.league_name}
+              Showing {isEspn ? "available players" : "free agents"} for {selectedLeague.name || selectedLeague.league_name}
             </p>
           )}
 
@@ -346,10 +388,29 @@ export default function AvailablePlayersPage() {
                     ))}
                   </Select>
                 </div>
+                {isEspn && (
+                  <div className="available-field">
+                    <label htmlFor="available-status">Availability</label>
+                    <select id="available-status" value={availability}
+                      onChange={(event) => setAvailability(event.target.value)}>
+                      <option value="">All available players</option>
+                      <option value="FREEAGENT">Free agents</option>
+                      <option value="WAIVERS">On waivers</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
+              {isEspn && (
+                <button type="button" className="btn btn-secondary" disabled={loadingPlayers}
+                  onClick={() => setAttempt((current) => current + 1)}>
+                  Refresh available players
+                </button>
+              )}
               <p className="available-projection-note">
-                Players are ordered by Sleeper&apos;s expected weekly PPR points. Players without a projection appear last.
+                {isEspn
+                  ? "Ordered by ESPN roster percentage."
+                  : "Players are ordered by Sleeper's expected weekly PPR points. Players without a projection appear last."}
               </p>
 
               {loadingPlayers && <p role="status">Loading available players...</p>}
@@ -368,16 +429,18 @@ export default function AvailablePlayersPage() {
               {!loadingPlayers && !error && (
                 <>
                   <p className="available-results-count" role="status" aria-live="polite">
-                    Showing {players.length} available players
-                    {players.length === 100 ? " · Search to find more" : ""}
+                    Showing {visiblePlayers.length} available players
+                    {filteredPlayers.length > visiblePlayers.length
+                      ? ` of ${filteredPlayers.length} · Search to find more`
+                      : !isEspn && visiblePlayers.length === 100 ? " · Search to find more" : ""}
                   </p>
-                  {players.length === 0 ? (
+                  {visiblePlayers.length === 0 ? (
                     <p className="available-empty">
                       No available players matched those filters.
                     </p>
                   ) : (
                     <div className="available-player-grid">
-                      {players.map((player, index) => (
+                      {visiblePlayers.map((player, index) => (
                         <article className="available-player-card" key={player.player_id}>
                           <span className="available-player-rank" aria-label={`Rank ${index + 1}`}>
                             {index + 1}
@@ -389,10 +452,22 @@ export default function AvailablePlayersPage() {
                               {player.team}
                               {player.age ? ` · Age ${player.age}` : ""}
                             </p>
+                            {isEspn && (
+                              <p>
+                                {player.availability === "WAIVERS" ? "On waivers" : "Free agent"}
+                                {player.waiver_process_date
+                                  ? ` · Clears ${new Date(player.waiver_process_date).toLocaleString([], {
+                                      month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                                    })}`
+                                  : ""}
+                              </p>
+                            )}
                           </div>
                           <span className="available-player-points">
-                            {formatPoints(player.expected_points)}
-                            <small>pts</small>
+                            {isEspn && typeof player.percent_rostered === "number"
+                              ? `${formatPoints(player.percent_rostered)}%`
+                              : formatPoints(player.expected_points)}
+                            <small>{isEspn ? "rostered" : "pts"}</small>
                           </span>
                           {player.injury_status !== "Healthy" && (
                             <span className="available-injury">
@@ -404,7 +479,7 @@ export default function AvailablePlayersPage() {
                     </div>
                   )}
                   <p className="available-note">
-                    Player data is from Sleeper. Add players to your roster directly in Sleeper.
+                    {isEspn ? "Add players or submit waiver claims in ESPN." : "Add players to your roster directly in Sleeper."}
                   </p>
                 </>
               )}

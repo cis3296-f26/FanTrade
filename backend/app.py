@@ -2,7 +2,7 @@ import json
 import os
 import pathlib
 import re
-from datetime import timedelta
+from datetime import date, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,7 +23,9 @@ from sleeper_connection import (
     get_all_nfl_teams,
     search_nfl_players,
 )
-from espn_connection import get_espn_league
+from espn_connection import (
+    espn_suggestion_league, espn_trade_rosters, get_espn_available_players, get_espn_league,
+)
 from nfl_pbp_connection import get_play_by_play_data, get_summary_stats
 
 from db import get_db
@@ -130,10 +132,28 @@ def sleeper_trending_players(trend_type):
 @api.route("/espn/<league_id>")
 def espn_demo(league_id=None):
     target_id = league_id or request.args.get("league_id", "16016")
-    season = request.args.get("season", 2026, type=int)
-    espn_s2 = request.args.get("espn_s2")
-    swid = request.args.get("swid")
-    return jsonify(get_espn_league(target_id, season=season, espn_s2=espn_s2, swid=swid))
+    season = request.args.get("season", type=int)
+    result = get_espn_league(target_id, season=season)
+    if "error" not in result and request.args.get("calculator") == "1":
+        players = _load_players()
+        if players:
+            result = espn_trade_rosters(result, players)
+        else:
+            result = {"error": "Player directory is unavailable. Try again.", "status_code": 503}
+    response = jsonify(result)
+    response.headers["Cache-Control"] = "no-store"
+    return response, result.get("status_code", 502) if "error" in result else 200
+
+
+@api.route("/espn/available-players/<league_id>")
+def espn_available_players(league_id):
+    season = request.args.get("season", type=int)
+    if season is None or not 1999 <= season <= date.today().year:
+        return jsonify({"error": "Choose a valid ESPN season."}), 400
+    result = get_espn_available_players(league_id, season)
+    response = jsonify(result)
+    response.headers["Cache-Control"] = "no-store"
+    return response, result.get("status_code", 200)
 
 
 @api.route("/nfl/teams")
@@ -158,7 +178,7 @@ def player_search_route():
 
 @api.route("/pbp")
 def pbp_demo():
-    season = request.args.get("season", 2026, type=int)
+    season = request.args.get("season", type=int)
     team = request.args.get("team", "").upper().strip()
 
     if season not in PBP_CACHE:
@@ -397,6 +417,25 @@ def trade_evaluation():
             "error": "Could not calculate trade with FantasyCalc values. Please try again."
         }), 503
 
+def load_suggestion_league(data, league_id):
+    platform = data.get("platform", "sleeper")
+    if platform == "sleeper":
+        return get_league_rosters(league_id)
+    if platform != "espn":
+        raise ValueError("Choose a supported league platform.")
+
+    season = data.get("season")
+    if type(season) is not int or not 1999 <= season <= date.today().year:
+        raise ValueError("Choose a valid ESPN season.")
+    league = get_espn_league(league_id, season=season)
+    if "error" in league:
+        return league
+    directory = _load_players()
+    if not directory:
+        return {"error": "Player directory is unavailable. Try again."}
+    return espn_suggestion_league(league, directory)
+
+
 @api.route("/trade-suggestions", methods=["POST"])
 def trade_suggestions():
     from fancalc_connection import fetch_fancalc_values
@@ -412,7 +451,7 @@ def trade_suggestions():
         data = request.get_json(silent=True)
         league_id, your_id, partner_id, position = validate_suggestion_request(data)
         preferences = parse_trade_preferences(data)
-        league = get_league_rosters(league_id)
+        league = load_suggestion_league(data, league_id)
         if not isinstance(league, dict) or league.get("error"):
             return jsonify({"error": "Could not load this league. Try again."}), 503
         roster_ids = {str(r["roster_id"]) for r in league.get("rosters", [])}
@@ -450,7 +489,7 @@ def trade_compatible_partners():
         league_id, your_id, position = validate_compatible_partners_request(data)
         preferences = parse_trade_preferences(data)
         offset = validate_verification_offset(data)
-        league = get_league_rosters(league_id)
+        league = load_suggestion_league(data, league_id)
         if not isinstance(league, dict) or league.get("error"):
             return jsonify({"error": "Could not load this league. Try again."}), 503
         roster_ids = {str(r["roster_id"]) for r in league.get("rosters", [])}
@@ -649,8 +688,12 @@ async def saved_leagues():
     platform = data.get("platform", "sleeper")
     if not isinstance(league_id, str) or not league_id.strip():
         return jsonify({"error": "A league ID is required."}), 400
-    if platform != "sleeper":
-        return jsonify({"error": "Only Sleeper leagues can be saved right now."}), 400
+    if platform not in ("sleeper", "espn"):
+        return jsonify({"error": "Unsupported league platform."}), 400
+    if platform == "espn":
+        season, _, espn_id = league_id.strip().partition(":")
+        if len(season) != 4 or not season.isdecimal() or not espn_id.isdecimal():
+            return jsonify({"error": "An ESPN league ID and season are required."}), 400
     league_id = league_id.strip()
 
     try:
