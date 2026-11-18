@@ -23,9 +23,9 @@ class CompatiblePartnersUnitTests(unittest.TestCase):
         _, _, pos_rb = validate_compatible_partners_request({"league_id": "12345", "your_roster_id": 1, "position": "rb"})
         self.assertEqual(pos_rb, "RB")
 
-        # Unsupported position fallback
-        _, _, pos_fallback = validate_compatible_partners_request({"league_id": "12345", "your_roster_id": 1, "position": "KICKER"})
-        self.assertEqual(pos_fallback, "ANY")
+        # Unsupported positions must not silently broaden the user's request.
+        with self.assertRaises(ValueError):
+            validate_compatible_partners_request({"league_id": "12345", "your_roster_id": 1, "position": "KICKER"})
 
     def test_validate_request_rejects_invalid_inputs(self):
         for bad in (
@@ -142,8 +142,8 @@ class CompatiblePartnersUnitTests(unittest.TestCase):
         self.assertEqual(top_partner["direct_trade_preview"]["give_count"], 2)
         self.assertEqual(top_partner["direct_trade_preview"]["receive_count"], 2)
 
-    def test_all_partners_verified_for_direct_trades(self):
-        # Verify that teams outside the top 3 still get direct trade checks
+    def test_only_first_page_is_verified_for_direct_trades(self):
+        # Rank every team, but leave later pages explicitly unchecked.
         league, market = fixture()
         # Add 3 extra teams (total 5 teams, so 4 partners for team 1)
         for r_id in (3, 4, 5):
@@ -162,7 +162,9 @@ class CompatiblePartnersUnitTests(unittest.TestCase):
         result = find_compatible_trade_partners(league, 1, market)
         partners = result["partners"]
         self.assertEqual(len(partners), 4)
-        # Any partner with an achievable trade package should have has_direct_trade verified
+        self.assertEqual(sum(p["verification_status"] != "not_checked" for p in partners), 3)
+        self.assertEqual(partners[3]["verification_status"], "not_checked")
+        self.assertEqual(result["verification"]["next_offset"], 3)
         verified = [p for p in partners if p["has_direct_trade"]]
         self.assertGreater(len(verified), 0)
 

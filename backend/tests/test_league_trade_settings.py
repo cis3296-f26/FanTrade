@@ -18,7 +18,8 @@ class LeagueTradeSettingsTests(unittest.TestCase):
             Mock(status_code=200, json=Mock(return_value=league)),
             Mock(status_code=200, json=Mock(return_value=[])),
             Mock(status_code=200, json=Mock(return_value=[
-                {"roster_id": 1, "players": [], "starters": ["0"] * 5},
+                {"roster_id": 1, "players": [], "starters": ["0"] * 5,
+                 "reserve": [123], "taxi": [456]},
             ])),
         ]
         # Stub every external data source so this test runs without API access.
@@ -34,6 +35,8 @@ class LeagueTradeSettingsTests(unittest.TestCase):
         self.assertEqual(result["settings"], {"type": 2, "num_teams": 10})
         self.assertEqual(result["total_rosters"], 1)
         self.assertEqual(result["rosters"][0]["players"], [])
+        self.assertEqual(result["rosters"][0]["reserve"], ["123"])
+        self.assertEqual(result["rosters"][0]["taxi"], ["456"])
 
 
 if __name__ == "__main__":
