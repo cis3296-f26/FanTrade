@@ -9,7 +9,8 @@ function normalize(value) {
   return String(value ?? "").trim().toLowerCase();
 }
 
-export default function RosterSearch({ leagueId }) {
+export default function RosterSearch({ leagueId, platform = "sleeper", onSave, isSaved, saving }) {
+  const isEspn = platform === "espn";
   const [league, setLeague] = useState(null);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -28,10 +29,14 @@ export default function RosterSearch({ leagueId }) {
       setLeague(null);
 
       try {
-        const data = await fetchJson(
-          `/api/sleeper/rosters/${encodeURIComponent(leagueId)}`,
-          { signal: controller.signal }
-        );
+        const [season, espnId] = isEspn ? leagueId.split(":") : [];
+        const url = isEspn
+          ? `/api/espn/${encodeURIComponent(espnId)}?season=${encodeURIComponent(season)}`
+          : `/api/sleeper/rosters/${encodeURIComponent(leagueId)}`;
+        const data = await fetchJson(url, { signal: controller.signal });
+        if (isEspn && Array.isArray(data.teams)) {
+          data.rosters = data.teams.map((team) => ({ ...team, roster_id: team.team_id }));
+        }
 
         if (!Array.isArray(data.rosters)) {
           throw new Error("The server did not return valid roster data.");
@@ -57,14 +62,14 @@ export default function RosterSearch({ leagueId }) {
     // React runs this cleanup when the component leaves the page
     // or before this effect runs again.
     return () => controller.abort();
-  }, [leagueId, attempt]);
+  }, [leagueId, attempt, isEspn]);
 
   if (loading) {
     return (
       <div className="roster-search league-content-layout">
         <p role="status">Loading teams and player names...</p>
         {/* Show the panel right away, with its controls disabled until teams load. */}
-        <TradeSuggestion loading />
+        {!isEspn && <TradeSuggestion loading />}
       </div>
     );
   }
@@ -86,7 +91,7 @@ export default function RosterSearch({ leagueId }) {
           </button>
         </div>
         {/* Keep the panel visible and explain that the league needs to be loaded again. */}
-        <TradeSuggestion unavailable />
+        {!isEspn && <TradeSuggestion unavailable />}
       </div>
     );
   }
@@ -123,8 +128,23 @@ export default function RosterSearch({ leagueId }) {
         or player name.
       </p>
 
+      {isEspn && (
+        <div className="search-controls">
+          <button type="button" className="btn btn-secondary"
+            onClick={() => setAttempt((current) => current + 1)}>
+            Refresh rosters
+          </button>
+          {onSave && (
+            <button type="button" className="btn btn-secondary"
+              disabled={isSaved || saving} onClick={() => onSave(league)}>
+              {isSaved ? "League saved" : saving ? "Saving..." : "Save this league"}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Keep the league heading above both columns: rosters on the left, trades on the right. */}
-      <div className="league-content-layout">
+      <div className={isEspn ? "league-content-layout espn-roster-layout" : "league-content-layout"}>
         <div className="league-roster-content">
           <div className="search-controls">
             <div className="field">
@@ -190,7 +210,7 @@ export default function RosterSearch({ leagueId }) {
           )}
         </div>
         {/* Pass the league ID for generation and all teams so search doesn't filter the dropdowns. */}
-        <TradeSuggestion leagueId={leagueId} teams={league.rosters} />
+        {!isEspn && <TradeSuggestion leagueId={leagueId} teams={league.rosters} />}
       </div>
     </section>
   );

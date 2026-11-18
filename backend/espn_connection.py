@@ -21,8 +21,8 @@ def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = No
     Private leagues require espn_s2 and swid cookie strings.
     """
     clean_id = str(league_id).strip()
-    if not clean_id:
-        return {"error": "ESPN league ID cannot be empty"}
+    if not clean_id.isascii() or not clean_id.isdecimal():
+        return {"error": "Enter a numeric ESPN league ID.", "status_code": 400}
 
     # Default to current season
     if not season:
@@ -51,12 +51,12 @@ def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = No
 
     if resp.status_code in (401, 403):
         return {
-            "error": "This ESPN league is private. Pass 'espn_s2' and 'swid' cookies to view it.",
+            "error": "This ESPN league requires sign-in. FanTrade currently supports publicly viewable ESPN leagues.",
             "status_code": resp.status_code
         }
     elif resp.status_code == 404:
         return {
-            "error": f"ESPN league '{clean_id}' was not found for season {season}. If this league is private, ESPN blocks access with a 404 unless you pass 'espn_s2' and 'SWID' cookies, or toggle 'Make League Viewable to Public' in ESPN league settings.",
+            "error": f"ESPN league '{clean_id}' was not found for season {season}. Check the league ID, season, and public viewability setting.",
             "status_code": 404
         }
     elif resp.status_code != 200:
@@ -65,7 +65,12 @@ def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = No
             "status_code": resp.status_code
         }
 
-    data = resp.json()
+    try:
+        data = resp.json()
+    except ValueError:
+        return {"error": "ESPN did not return league data.", "status_code": 502}
+    if not isinstance(data, dict) or not isinstance(data.get("teams"), list):
+        return {"error": "ESPN did not return a team list.", "status_code": 502}
 
     # 1. League name
     settings = data.get("settings", {})
@@ -115,6 +120,7 @@ def get_espn_league(league_id: str or int, season: int = None, espn_s2: str = No
                 "player_id": str(entry.get("playerId") or pinfo.get("id", "")),
                 "name": pinfo.get("fullName", "Unknown Player"),
                 "position": position,
+                "injury_status": (pinfo.get("injuryStatus") or "Healthy").replace("ACTIVE", "Healthy"),
                 "is_starter": is_starter
             })
 

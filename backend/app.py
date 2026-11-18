@@ -130,10 +130,11 @@ def sleeper_trending_players(trend_type):
 @api.route("/espn/<league_id>")
 def espn_demo(league_id=None):
     target_id = league_id or request.args.get("league_id", "16016")
-    season = request.args.get("season", 2026, type=int)
-    espn_s2 = request.args.get("espn_s2")
-    swid = request.args.get("swid")
-    return jsonify(get_espn_league(target_id, season=season, espn_s2=espn_s2, swid=swid))
+    season = request.args.get("season", type=int)
+    result = get_espn_league(target_id, season=season)
+    response = jsonify(result)
+    response.headers["Cache-Control"] = "no-store"
+    return response, result.get("status_code", 502) if "error" in result else 200
 
 
 @api.route("/nfl/teams")
@@ -158,7 +159,7 @@ def player_search_route():
 
 @api.route("/pbp")
 def pbp_demo():
-    season = request.args.get("season", 2026, type=int)
+    season = request.args.get("season", type=int)
     team = request.args.get("team", "").upper().strip()
 
     if season not in PBP_CACHE:
@@ -639,8 +640,12 @@ async def saved_leagues():
     platform = data.get("platform", "sleeper")
     if not isinstance(league_id, str) or not league_id.strip():
         return jsonify({"error": "A league ID is required."}), 400
-    if platform != "sleeper":
-        return jsonify({"error": "Only Sleeper leagues can be saved right now."}), 400
+    if platform not in ("sleeper", "espn"):
+        return jsonify({"error": "Unsupported league platform."}), 400
+    if platform == "espn":
+        season, _, espn_id = league_id.strip().partition(":")
+        if len(season) != 4 or not season.isdecimal() or not espn_id.isdecimal():
+            return jsonify({"error": "An ESPN league ID and season are required."}), 400
     league_id = league_id.strip()
 
     try:

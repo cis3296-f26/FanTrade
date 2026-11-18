@@ -5,9 +5,16 @@ import RosterSearch from "./RosterSearch";
 import Select, { SelectItem } from "../ui/Select";
 import "./LeagueSearch.css";
 
+function savedLeagueKey(league) {
+  return `${league.platform}:${league.league_id}`;
+}
+
 export default function LeagueSearch() {
   const { user, savedLeagues, loading: authLoading, updateSavedLeague } = useAuth();
 
+  const [espnLink, setEspnLink] = useState("");
+  const [espnLeague, setEspnLeague] = useState("");
+  const [espnError, setEspnError] = useState("");
   const [username, setUsername] = useState("");
   const [profile, setProfile] = useState(null);
   const [leagueId, setLeagueId] = useState("");
@@ -24,7 +31,7 @@ export default function LeagueSearch() {
     if (authLoading) return;
     if (!autoSelectedRef.current && user && savedLeagues.length > 0 && !savedLeagueId && !leagueId) {
       autoSelectedRef.current = true;
-      setSavedLeagueId(savedLeagues[0].league_id);
+      setSavedLeagueId(savedLeagueKey(savedLeagues[0]));
     }
   }, [authLoading, user, savedLeagues, savedLeagueId, leagueId]);
 
@@ -34,13 +41,38 @@ export default function LeagueSearch() {
   const selectedLeagueIsSaved = savedLeagues.some(
     (league) => league.league_id === leagueId && league.platform === "sleeper"
   );
-  const activeLeagueId = leagueId || savedLeagueId;
+  const savedLeague = savedLeagues.find((league) => savedLeagueKey(league) === savedLeagueId);
+  const platform = espnLeague ? "espn" : savedLeague?.platform || "sleeper";
+  const activeLeagueId = espnLeague || leagueId || savedLeague?.league_id;
+
+  function handleEspnSubmit(event) {
+    event.preventDefault();
+    setEspnError("");
+    try {
+      const url = new URL(espnLink.trim());
+      const id = url.searchParams.get("leagueId");
+      const today = new Date();
+      const currentSeason = today.getFullYear() - Number(today.getMonth() < 7);
+      const season = url.searchParams.get("seasonId") ?? String(currentSeason);
+      if (url.origin !== "https://fantasy.espn.com" ||
+          url.pathname.replace(/\/$/, "") !== "/football/league" ||
+          !/^\d+$/.test(id ?? "") || !/^\d{4}$/.test(season)) {
+        throw new Error();
+      }
+      setLeagueId("");
+      setSavedLeagueId("");
+      setSavedLeagueError("");
+      setEspnLeague(`${season}:${id}`);
+    } catch {
+      setEspnError("Paste a public ESPN Fantasy Football League Office link.");
+    }
+  }
 
   const hasSavedLeagues = Boolean(user && savedLeagues.length > 0);
   const shouldShowSearchForm = !user || !hasSavedLeagues || showSearch;
 
-  async function handleSaveLeague() {
-    if (!selectedLeague || !user || saving) {
+  async function handleSaveLeague(league, leaguePlatform) {
+    if (!league || !user || saving) {
       return;
     }
 
@@ -48,9 +80,9 @@ export default function LeagueSearch() {
     setSavedLeagueError("");
     try {
       await updateSavedLeague("POST", {
-        league_id: selectedLeague.league_id,
-        league_name: selectedLeague.name,
-        platform: "sleeper",
+        league_id: league.league_id,
+        league_name: league.name,
+        platform: leaguePlatform,
       });
     } catch (requestError) {
       setSavedLeagueError(requestError.message);
@@ -60,7 +92,7 @@ export default function LeagueSearch() {
   }
 
   async function handleRemoveSavedLeague() {
-    if (!savedLeagueId || saving) {
+    if (!savedLeague || saving) {
       return;
     }
 
@@ -68,8 +100,8 @@ export default function LeagueSearch() {
     setSavedLeagueError("");
     try {
       await updateSavedLeague("DELETE", {
-        league_id: savedLeagueId,
-        platform: "sleeper",
+        league_id: savedLeague.league_id,
+        platform: savedLeague.platform,
       });
       setSavedLeagueId("");
     } catch (requestError) {
@@ -91,6 +123,7 @@ export default function LeagueSearch() {
     setLoading(true);
     setError("");
     setProfile(null);
+    setEspnLeague("");
     setLeagueId("");
     setSavedLeagueId("");
 
@@ -137,13 +170,14 @@ export default function LeagueSearch() {
                 placeholder="Select a saved league"
                 onChange={(v) => {
                   setSavedLeagueId(v);
+                  setEspnLeague("");
                   setLeagueId("");
                   setSavedLeagueError("");
                 }}
               >
                 {savedLeagues.map((league) => (
-                  <SelectItem key={`${league.platform}:${league.league_id}`} value={league.league_id}>
-                    {league.league_name}
+                  <SelectItem key={savedLeagueKey(league)} value={savedLeagueKey(league)}>
+                    {league.league_name}{league.platform === "espn" ? " · ESPN" : ""}
                   </SelectItem>
                 ))}
               </Select>
@@ -166,7 +200,7 @@ export default function LeagueSearch() {
               className="btn btn-ghost search-toggle-btn"
               onClick={() => setShowSearch((prev) => !prev)}
             >
-              {showSearch ? "Hide Sleeper search ▴" : "+ Search new Sleeper league ▾"}
+              {showSearch ? "Hide league search ▴" : "+ Find another league ▾"}
             </button>
           </div>
         </div>
@@ -174,13 +208,13 @@ export default function LeagueSearch() {
 
       {user && !hasSavedLeagues && (
         <p className="muted">
-          You haven&apos;t saved any leagues yet. Enter your Sleeper username below to find and save a league.
+          You haven&apos;t saved any leagues yet. Find a Sleeper or ESPN league below.
         </p>
       )}
 
       {!user && (
         <p className="muted">
-          Enter a Sleeper username to find its leagues for the active season.
+          Search with a Sleeper username or a public ESPN league link.
         </p>
       )}
 
@@ -245,6 +279,7 @@ export default function LeagueSearch() {
                     placeholder="Select a league"
                     onChange={(v) => {
                       setLeagueId(v);
+                      setEspnLeague("");
                       setSavedLeagueId("");
                       setSavedLeagueError("");
                     }}
@@ -263,7 +298,7 @@ export default function LeagueSearch() {
                   <button
                     type="button"
                     className="btn btn-secondary"
-                    onClick={handleSaveLeague}
+                    onClick={() => handleSaveLeague(selectedLeague, "sleeper")}
                     disabled={saving || selectedLeagueIsSaved}
                   >
                     {saving
@@ -279,6 +314,24 @@ export default function LeagueSearch() {
         </div>
       )}
 
+      {shouldShowSearchForm && (
+        <form className="username-form" onSubmit={handleEspnSubmit}>
+          <div className="field">
+            <label htmlFor="espn-league-link">Public ESPN League Office link</label>
+            <input
+              id="espn-league-link"
+              type="url"
+              required
+              value={espnLink}
+              onChange={(event) => setEspnLink(event.target.value)}
+              placeholder="https://fantasy.espn.com/football/league?leagueId=..."
+            />
+          </div>
+          <button type="submit" className="btn btn-primary">Open ESPN league</button>
+          {espnError && <p role="alert" className="error-message">{espnError}</p>}
+        </form>
+      )}
+
       {savedLeagueError && (
         <p className="error-message" role="alert">
           {savedLeagueError}
@@ -286,7 +339,17 @@ export default function LeagueSearch() {
       )}
 
       {activeLeagueId && (
-        <RosterSearch key={activeLeagueId} leagueId={activeLeagueId} />
+        <RosterSearch
+          key={`${platform}:${activeLeagueId}`}
+          leagueId={activeLeagueId}
+          platform={platform}
+          onSave={platform === "espn" && user
+            ? (league) => handleSaveLeague({ ...league, league_id: activeLeagueId }, platform)
+            : undefined}
+          isSaved={savedLeagues.some((league) =>
+            league.platform === platform && league.league_id === activeLeagueId)}
+          saving={saving}
+        />
       )}
     </section>
   );
