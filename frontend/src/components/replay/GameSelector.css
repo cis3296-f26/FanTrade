@@ -1,0 +1,199 @@
+.game-selector {
+  width: 100%;
+}
+
+.game-selector-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.game-selector-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.game-selector-label {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+  min-width: 52px;
+}
+
+.game-selector-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.game-selector-pill {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.game-selector-pill:hover:not(.game-selector-pill--active):not(.game-selector-pill--no-data) {
+  background: var(--surface);
+  color: var(--text-bright);
+}
+
+.game-selector-pill--active {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: var(--dark);
+  font-weight: 600;
+}
+
+.game-selector-pill--no-data {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.game-selector-pills--weeks {
+  gap: 4px;
+}
+
+.game-selector-status {
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  margin: 8px 0;
+}
+
+.game-selector-status--error {
+  color: #ff6b6b;
+}
+
+.game-selector-empty {
+  padding: 24px;
+  background: var(--surface);
+  border-radius: 8px;
+  text-align: center;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  border: 1px solid var(--border);
+}
+
+.game-selector-empty code {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--teal);
+  font-family: monospace;
+}
+
+.game-selector-empty-hint {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.game-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.game-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s, transform 0.12s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.game-card:hover {
+  background: var(--surface-raised);
+  border-color: rgba(61, 159, 151, 0.4);
+  transform: translateY(-1px);
+}
+
+.game-card-teams {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.game-card-team {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 60px;
+}
+
+.game-card-team--home {
+  text-align: right;
+}
+
+.game-card-abbr {
+  font-family: var(--sans);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-bright);
+}
+
+.game-card-name {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--text);
+}
+
+.game-card-score {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--sans);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--teal);
+}
+
+.game-card-at {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.game-card-meta {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--text);
+}
+
+.game-card-cta {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--teal);
+  margin-top: 2px;
+}
+
+@media (max-width: 600px) {
+  .game-selector-filter-group {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .game-selector-grid {
+    grid-template-columns: 1fr;
+  }
+}
