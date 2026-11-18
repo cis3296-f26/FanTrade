@@ -82,7 +82,14 @@ function TeamSelector({
   );
 }
 
-export default function TradeSuggestion({ leagueId, teams = [], loading = false, unavailable = false }) {
+export default function TradeSuggestion({
+  leagueId,
+  platform = "sleeper",
+  season,
+  teams = [],
+  loading = false,
+  unavailable = false,
+}) {
   // League changes recreate the panel, resetting all team and preference selections.
   const [yourTeamId, setYourTeamId] = useState("");
   const [partnerTeamId, setPartnerTeamId] = useState("");
@@ -98,8 +105,14 @@ export default function TradeSuggestion({ leagueId, teams = [], loading = false,
   const disabled = loading || unavailable || teams.length < 2;
   const editingRange = range[0] !== committedRange[0] || range[1] !== committedRange[1];
   const request = {
-    league_id: String(leagueId), your_roster_id: yourTeamId, position,
-    min_gain_percent: committedRange[0], max_gain_percent: committedRange[1], trade_style: tradeStyle,
+    league_id: String(leagueId),
+    platform,
+    ...(platform === "espn" && { season }),
+    your_roster_id: yourTeamId,
+    position,
+    min_gain_percent: committedRange[0],
+    max_gain_percent: committedRange[1],
+    trade_style: tradeStyle,
   };
   const requestKey = JSON.stringify(request);
   const partners = useTradePartners(requestKey, Boolean(leagueId && yourTeamId) && !disabled && !editingRange);
