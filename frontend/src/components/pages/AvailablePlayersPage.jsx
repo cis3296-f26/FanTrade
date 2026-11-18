@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { fetchJson } from "../../lib/api";
 import { useAuth } from "../../lib/AuthContext";
 import useScrollReveal from "../../hooks/useScrollReveal";
+import Select, { SelectItem } from "../ui/Select";
 import "./AvailablePlayersPage.css";
 
 const POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"];
@@ -263,44 +264,44 @@ export default function AvailablePlayersPage() {
           {savedSleeperLeagues.length > 0 && (
             <div className="available-field available-saved-leagues">
               <label htmlFor="available-saved-league">Or choose a saved league</label>
-              <select
+              <Select
                 id="available-saved-league"
                 value={leagueId}
-                onChange={(event) => {
-                  setLeagueId(event.target.value);
+                onChange={(value) => {
+                  setLeagueId(value);
                   setError("");
                   setAttempt((current) => current + 1);
                 }}
+                placeholder="Select a saved league"
               >
-                <option value="">Select a saved league</option>
                 {savedSleeperLeagues.map((league) => (
-                  <option key={league.league_id} value={league.league_id}>
+                  <SelectItem key={league.league_id} value={league.league_id}>
                     {league.league_name}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
 
           {leagues.length > 0 && (
             <div className="available-field available-league-select">
               <label htmlFor="available-league">Choose a league</label>
-              <select
+              <Select
                 id="available-league"
                 value={leagueId}
-                onChange={(event) => {
-                  setLeagueId(event.target.value);
+                onChange={(value) => {
+                  setLeagueId(value);
                   setError("");
                   setAttempt((current) => current + 1);
                 }}
+                placeholder="Select a league"
               >
-                <option value="">Select a league</option>
                 {leagues.map((league) => (
-                  <option key={league.league_id} value={league.league_id}>
+                  <SelectItem key={league.league_id} value={league.league_id}>
                     {league.name} · {league.total_rosters} teams · {league.scoring_type}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
 
@@ -331,18 +332,18 @@ export default function AvailablePlayersPage() {
                 </div>
                 <div className="available-field">
                   <label htmlFor="available-position">Position</label>
-                  <select
+                  <Select
                     id="available-position"
-                    value={position}
-                    onChange={(event) => setPosition(event.target.value)}
+                    value={position || "all"}
+                    onChange={(v) => setPosition(v === "all" ? "" : v)}
                   >
-                    <option value="">All positions</option>
+                    <SelectItem value="all">All positions</SelectItem>
                     {POSITIONS.map((item) => (
-                      <option key={item} value={item}>
+                      <SelectItem key={item} value={item}>
                         {item}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
 
@@ -434,15 +435,15 @@ export default function AvailablePlayersPage() {
                 </div>
                 <div className="available-field trending-lookback">
                   <label htmlFor="trending-lookback">Activity window</label>
-                  <select
+                  <Select
                     id="trending-lookback"
                     value={lookbackHours}
-                    onChange={(event) => setLookbackHours(event.target.value)}
+                    onChange={setLookbackHours}
                   >
-                    <option value="4">Last 4 hours</option>
-                    <option value="24">Last 24 hours</option>
-                    <option value="72">Last 3 days</option>
-                  </select>
+                    <SelectItem value="4">Last 4 hours</SelectItem>
+                    <SelectItem value="24">Last 24 hours</SelectItem>
+                    <SelectItem value="72">Last 3 days</SelectItem>
+                  </Select>
                 </div>
               </div>
 

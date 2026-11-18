@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import Select, { SelectItem } from "../ui/Select";
 import "./PlayerList.css";
 
 const POSITIONS = ["WR", "TE", "RB"];
@@ -6,14 +7,14 @@ const DRAG_THRESHOLD = 6; // px
 
 export default function PlayerList({ players, playerA, playerB, onAssign, onDragStart, onDragEnd }) {
   const [search, setSearch] = useState("");
-  const [position, setPosition] = useState("");
+  const [position, setPosition] = useState("all");
 
   const dragRef = useRef(null); // { player, startX, startY, dragging }
 
   const usedIds = new Set([playerA?.id, playerB?.id].filter(Boolean));
 
   const filtered = players.filter((p) => {
-    if (position && p.position !== position) return false;
+    if (position !== "all" && p.position !== position) return false;
     if (search) {
       const q = search.toLowerCase();
       return p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q);
@@ -71,17 +72,15 @@ export default function PlayerList({ players, playerA, playerB, onAssign, onDrag
           onChange={(e) => setSearch(e.target.value)}
           aria-label="Search players"
         />
-        <select
-          className="player-list-pos"
+        <Select
           value={position}
-          onChange={(e) => setPosition(e.target.value)}
-          aria-label="Filter by position"
+          onChange={setPosition}
         >
-          <option value="">All</option>
+          <SelectItem value="all">All</SelectItem>
           {POSITIONS.map((pos) => (
-            <option key={pos} value={pos}>{pos}</option>
+            <SelectItem key={pos} value={pos}>{pos}</SelectItem>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="player-list-scroll" role="listbox" aria-label="Player list">

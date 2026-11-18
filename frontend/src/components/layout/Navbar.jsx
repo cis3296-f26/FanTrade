@@ -11,7 +11,7 @@ const NAV_LINKS = [
   { label: "League View", path: "/search" },
   { label: "Trade Calculator", path: "/trade" },
   { label: "Available Players", path: "/available-players" },
-  { label: "Target Map", path: "/target-map" },
+  { label: "Playground", path: "/playground", prefix: true },
 ];
 
 export default function Navbar() {
@@ -83,13 +83,13 @@ export default function Navbar() {
       </button>
 
       <ul className={`navbar-links${open ? " navbar-links--open" : ""}`}>
-        {NAV_LINKS.map(({ label, path }) => (
-          <li key={path}>
+        {NAV_LINKS.map((link) => (
+          <li key={link.path}>
             <button
-              className={`navbar-link${pathname === path ? " navbar-link--active" : ""}`}
-              onClick={() => handleNav(path)}
+              className={`navbar-link${(link.prefix ? pathname.startsWith(link.path) : pathname === link.path) ? " navbar-link--active" : ""}`}
+              onClick={() => handleNav(link.path)}
             >
-              {label}
+              {link.label}
             </button>
           </li>
         ))}
