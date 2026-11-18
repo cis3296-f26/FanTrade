@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import * as Popover from "@radix-ui/react-popover";
 import { useAuth } from "../../lib/AuthContext";
@@ -25,6 +25,22 @@ export default function Navbar() {
   const [password, setPassword] = useState("");
   const [accountError, setAccountError] = useState("");
   const [accountBusy, setAccountBusy] = useState(false);
+  const [overHero, setOverHero] = useState(false);
+  const navRef = useRef(null);
+
+  useEffect(() => {
+    if (pathname !== "/") { setOverHero(false); return; }
+    function check() {
+      const hero = document.querySelector(".home-hero");
+      if (!hero || !navRef.current) return;
+      const navBottom = navRef.current.getBoundingClientRect().bottom;
+      const heroBottom = hero.getBoundingClientRect().bottom;
+      setOverHero(heroBottom > navBottom);
+    }
+    check();
+    window.addEventListener("scroll", check, { passive: true });
+    return () => window.removeEventListener("scroll", check);
+  }, [pathname]);
 
   function handleNav(path) {
     navigate(path);
@@ -67,20 +83,11 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="navbar">
+    <nav className={`navbar${overHero ? " navbar--over-hero" : ""}${open ? " navbar--open" : ""}`} ref={navRef}>
       <div className="navbar-logo" onClick={() => handleNav("/")}>
         <img src={helmet} alt="" className="navbar-helmet" aria-hidden="true" />
         <span>FanTrade.</span>
       </div>
-
-      <button
-        className="navbar-hamburger"
-        aria-label="Toggle menu"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <span className={`navbar-hamburger-icon${open ? " navbar-hamburger-icon--open" : ""}`} />
-      </button>
 
       <ul className={`navbar-links${open ? " navbar-links--open" : ""}`}>
         {NAV_LINKS.map(({ label, path }) => (
@@ -116,10 +123,7 @@ export default function Navbar() {
         ) : (
           <Popover.Root open={accountOpen} onOpenChange={handleAccountOpenChange}>
             <Popover.Trigger asChild>
-              <button
-                type="button"
-                className="btn btn-ghost navbar-account-button"
-              >
+              <button type="button" className="btn btn-ghost navbar-account-button">
                 {loading ? "Sign in" : "Sign in / Register"}
               </button>
             </Popover.Trigger>
@@ -188,6 +192,15 @@ export default function Navbar() {
             </Popover.Portal>
           </Popover.Root>
         )}
+
+        <button
+          className="navbar-hamburger"
+          aria-label="Toggle menu"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span className={`navbar-hamburger-icon${open ? " navbar-hamburger-icon--open" : ""}`} />
+        </button>
       </div>
     </nav>
   );

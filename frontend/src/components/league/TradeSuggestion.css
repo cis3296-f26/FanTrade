@@ -829,3 +829,292 @@
   font-weight: 500;
   margin-top: 2px;
 }
+
+.search-app .trade-control-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-bright);
+}
+
+.search-app .trade-control-help {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.search-app .trade-style-dropdown {
+  position: relative;
+}
+
+.search-app .trade-style-dropdown summary {
+  list-style: none;
+}
+
+.search-app .trade-style-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.search-app .trade-style-dropdown summary[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.search-app .trade-style-options {
+  position: relative;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.search-app .trade-style-options fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.search-app .trade-style-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-bright);
+}
+
+.search-app .trade-style-option:has(input:checked) {
+  background: rgba(61, 159, 151, 0.15);
+  border-radius: 4px;
+}
+
+.search-app .trade-style-option input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--teal);
+}
+
+.search-app .trade-style-help-button {
+  min-height: 44px;
+  padding: 8px;
+  background: none;
+  border: 0;
+  color: var(--teal);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.search-app .trade-style-help {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 0;
+  width: 290px;
+  padding: 16px;
+  border: 1px solid var(--teal);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  z-index: 10;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.search-app .trade-style-help p {
+  margin: 0 0 12px;
+}
+
+.search-app .trade-style-help-button:focus-visible,
+.search-app .trade-style-option:focus-within {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+.search-app .trade-range-values {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.search-app .trade-range-values strong {
+  display: block;
+  font-size: 20px;
+  color: var(--text-bright);
+  margin-top: 4px;
+}
+
+.search-app .trade-range-slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  margin: 4px 12px 0;
+  touch-action: none;
+  user-select: none;
+}
+
+.search-app .trade-range-track {
+  position: relative;
+  height: 6px;
+  flex-grow: 1;
+  border-radius: 6px;
+  background: rgba(245, 247, 250, 0.2);
+}
+
+.search-app .trade-range-fill {
+  position: absolute;
+  height: 100%;
+  border-radius: 6px;
+  background: var(--teal);
+}
+
+.search-app .trade-range-thumb {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--teal);
+  border-radius: 50%;
+  background: var(--off-white);
+  cursor: grab;
+}
+
+.search-app .trade-range-thumb::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+}
+
+.search-app .trade-range-thumb:focus-visible {
+  outline: 3px solid var(--teal);
+  outline-offset: 4px;
+}
+
+.search-app .trade-range-slider[data-disabled] {
+  opacity: 0.4;
+}
+
+.search-app button.partner-card {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.search-app button.partner-card:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.search-app .partner-card-row1,
+.search-app .partner-card-footer,
+.search-app .partner-card-badges,
+.search-app .balance-metrics {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.search-app .partner-name,
+.search-app .partner-owner,
+.search-app .outcome-player-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.search-app .tag-verification {
+  color: var(--text);
+  white-space: normal;
+}
+
+.search-app .btn-toggle-partners {
+  min-height: 44px;
+}
+
+.search-app .trade-result-format {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.search-app .trade-roster-moves {
+  padding: 14px;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.05);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.search-app .trade-roster-moves h4,
+.search-app .trade-roster-moves h5 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.search-app .trade-roster-move-team p {
+  margin: 12px 0;
+}
+
+.search-app .trade-roster-moves ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.search-app .trade-lineup-change {
+  font-size: 14px;
+  color: #ffe0b2;
+}
+
+@media (max-width: 1100px) {
+  .search-app .trade-style-help {
+    position: static;
+    width: auto;
+    margin-top: 8px;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .search-app .trade-suggestion {
+    padding: 16px;
+  }
+
+  .search-app .trade-control-help,
+  .search-app .reason-item,
+  .search-app .suggestion-credits-footer {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .search-app .trade-style-option {
+    font-size: 16px;
+    min-height: 48px;
+  }
+}
+
+.search-app .trade-style-dropdown > summary {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+.search-app .partners-header,
+.search-app .partners-header-left,
+.search-app .partners-toggle-bar,
+.search-app .partners-toggle-title {
+  flex-wrap: wrap;
+  min-width: 0;
+}

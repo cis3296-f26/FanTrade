@@ -50,8 +50,8 @@ class SuggestionTests(unittest.TestCase):
                 self.assertEqual(result["settings"]["ppr"], 0.5)
 
     def test_range_includes_boundaries_without_rounding_in_near_misses(self):
-        for give, expected in [(9800, True), (9200, True), (9801, False),
-                               (9199, False), (10000, False), (10100, False)]:
+        for give, expected in [(9600, True), (8800, True), (9601, False),
+                               (8799, False), (10000, False), (10100, False)]:
             with self.subTest(give=give):
                 self.assertEqual(within_value_range(give, 10000), expected)
 
@@ -77,6 +77,8 @@ class SuggestionTests(unittest.TestCase):
             roster["players"] += [player(100 + i, "K", 10000),
                                   player(200 + i, "DEF", 10000),
                                   player(300 + i, "RB", 10000)]
+        # Keep these larger test rosters within the league's active capacity.
+        league["roster_positions"] += ["BN", "BN"]
         result = generate_trade_suggestion(league, 1, 2, "RB", market)
         self.assertEqual(result["status"], "ok")
         self.assertEqual(len(result["warnings"]), 2)
@@ -90,13 +92,15 @@ class SuggestionTests(unittest.TestCase):
         self.assertEqual(result["status"], "no_match")
         self.assertIsNone(result["suggestion"])
 
-    def test_value_advantage_alone_is_not_enough(self):
+    def test_opponent_starter_loss_is_allowed_without_leaving_empty_slots(self):
         league, market = fixture()
-        # With every player required as a starter, one side's market-value
-        # gain necessarily costs the other side starter value.
+        # A positive market gain can cost the other team starter value; that is
+        # now permitted, provided the exchange still fills their starting slots.
         league["roster_positions"] = ["QB", "RB", "WR", "FLEX"]
         result = generate_trade_suggestion(league, 1, 2, "ANY", market)
-        self.assertEqual(result["status"], "no_match")
+        self.assertEqual(result["status"], "ok")
+        self.assertLess(result["suggestion"]["partner_lineup_value_gain"], 0)
+        self.assertGreaterEqual(result["suggestion"]["your_lineup_value_gain"], 0)
 
     def test_missing_market_data_is_not_reported_as_no_trade(self):
         league, _ = fixture()

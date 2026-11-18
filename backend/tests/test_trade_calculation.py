@@ -1,6 +1,7 @@
-"""Tests for trade_calculation.py — the experimental WR stats model."""
+"""Tests for the experimental stats-based trade calculator."""
 
 import unittest
+from unittest.mock import patch
 
 from trade_calculation import calculate_trade, player_value
 
@@ -42,6 +43,12 @@ RECORDS = [
 
 
 class PlayerValueTests(unittest.TestCase):
+    def setUp(self):
+        # Keep player-ID fallback local so these tests never download NFLverse data.
+        lookup = patch("trade_calculation.gsis_ids_by_sleeper_id", return_value={})
+        self.id_lookup = lookup.start()
+        self.addCleanup(lookup.stop)
+
     def test_value_scales_with_production(self):
         high = player_value("p1", PLAYERS["p1"], RECORDS, ppr=1)
         low  = player_value("p2", PLAYERS["p2"], RECORDS, ppr=1)
@@ -58,9 +65,31 @@ class PlayerValueTests(unittest.TestCase):
             self.assertIn(key, result)
         self.assertEqual(result["games"], 16)
 
-    def test_non_wr_position_raises_value_error(self):
-        with self.assertRaises(ValueError, msg="Non-WR should be rejected"):
+    def test_quarterback_with_stats_is_supported(self):
+        records = [_record("gsis-qb", passing_yards=4000, passing_tds=30)]
+        result = player_value("qb", PLAYERS["qb"], records, ppr=1)
+        self.assertEqual(result["player_id"], "qb")
+        self.assertGreater(result["value"], 0)
+        self.id_lookup.assert_not_called()
+
+    def test_missing_season_stats_raises_value_error(self):
+        with self.assertRaisesRegex(ValueError, "No unique NFLverse season stats"):
             player_value("qb", PLAYERS["qb"], RECORDS, ppr=1)
+        self.id_lookup.assert_called_once_with()
+
+    def test_unsupported_position_raises_value_error(self):
+        player = {"full_name": "Linebacker", "position": "LB"}
+        with self.assertRaisesRegex(ValueError, "Select a QB"):
+            player_value("lb", player, RECORDS, ppr=1)
+        self.id_lookup.assert_not_called()
+
+    def test_missing_gsis_uses_player_id_fallback(self):
+        self.id_lookup.return_value = {"p1": "gsis-1"}
+        player = {**PLAYERS["p1"], "gsis_id": None}
+        result = player_value("p1", player, RECORDS, ppr=1)
+        self.assertEqual(result["player_id"], "p1")
+        self.assertEqual(result["games"], 16)
+        self.id_lookup.assert_called_once_with()
 
     def test_missing_gsis_id_raises_value_error(self):
         player_no_gsis = {"full_name": "Ghost", "position": "WR", "gsis_id": None}

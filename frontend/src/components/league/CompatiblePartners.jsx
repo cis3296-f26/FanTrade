@@ -9,6 +9,11 @@ export default function CompatiblePartners({
   error = "",
   onSelectPartner,
   disabled = false,
+  warnings = [],
+  visibleCount = 3,
+  nextOffset,
+  onLoadMore,
+  onRetry,
 }) {
   // Let the user collapse the entire section so it doesn't take up any vertical space
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -31,8 +36,15 @@ export default function CompatiblePartners({
     );
   }
 
-  if (error || !partners || partners.length === 0) {
-    return null;
+  if (partners.length === 0 && !loading) {
+    return <section className="compatible-partners-container" aria-label="Compatible Trade Partners">
+      <strong>Recommended Trade Partners</strong>
+      <p className={error ? "error-message" : "muted"} role={error ? "alert" : "status"}>
+        {error || "No recommendations are available for these teams."}
+      </p>
+      {warnings.map((warning) => <p key={warning} className="muted">{warning}</p>)}
+      <button type="button" className="btn-toggle-partners" onClick={onRetry}>Retry recommendations</button>
+    </section>;
   }
 
   // When collapsed, just show a single compact clickable bar
@@ -58,8 +70,7 @@ export default function CompatiblePartners({
     );
   }
 
-  const displayedPartners = showAll ? partners : partners.slice(0, 3);
-  const remainingCount = partners.length - 3;
+  const displayedPartners = partners.slice(0, showAll ? visibleCount : 3);
 
   return (
     <section className="compatible-partners-container" aria-label="Compatible Trade Partners">
@@ -115,19 +126,14 @@ export default function CompatiblePartners({
               : "score-mid";
 
           return (
-            <div
+            <button
+              type="button"
+              disabled={disabled}
               key={partner.roster_id}
               className={`partner-card ${isSelected ? "partner-card-selected" : ""}`}
-              role="button"
-              tabIndex={0}
               aria-pressed={isSelected}
               onClick={() => !disabled && onSelectPartner(partner)}
-              onKeyDown={(e) => {
-                if ((e.key === "Enter" || e.key === " ") && !disabled) {
-                  e.preventDefault();
-                  onSelectPartner(partner);
-                }
-              }}
+
             >
               <div className="partner-card-row1">
                 <div className="partner-team-info">
@@ -156,6 +162,12 @@ export default function CompatiblePartners({
                       They have: {partner.partner_surplus_positions.join(", ")}
                     </span>
                   )}
+                  {!partner.has_direct_trade && (
+                    <span className="tag-chip tag-verification" title={partner.verification_message}>
+                      {{not_checked: "Not checked yet", no_match: "No match for these settings",
+                        search_limited: "Search limited · try generating", unavailable: "Data unavailable"}[partner.verification_status] || "Not checked yet"}
+                    </span>
+                  )}
                   {partner.has_direct_trade && (
                     <span
                       className="tag-chip tag-direct-ready"
@@ -178,19 +190,23 @@ export default function CompatiblePartners({
                   {isSelected ? "Active" : "Select →"}
                 </span>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
 
-      {/* Show more toggle */}
-      {remainingCount > 0 && (
-        <button
-          type="button"
-          className="btn-toggle-partners"
-          onClick={() => setShowAll(!showAll)}
-        >
-          {showAll ? "Show Fewer Matches ▴" : `Show ${remainingCount} More Partner${remainingCount === 1 ? "" : "s"} ▾`}
+      {/* Request one additional page at a time; keep already checked previews visible. */}
+      {error && <p className="error-message" role="alert">{error} <button type="button" className="btn-toggle-partners" onClick={onRetry}>Retry</button></p>}
+      {warnings.map((warning) => <p key={warning} className="muted">{warning}</p>)}
+      {nextOffset != null && !error && (
+        <button type="button" className="btn-toggle-partners" disabled={loading || disabled}
+          onClick={() => { setShowAll(true); onLoadMore(); }}>
+          {loading ? "Checking partners…" : `Show ${Math.min(3, partners.length - nextOffset)} more partners`}
+        </button>
+      )}
+      {visibleCount > 3 && (
+        <button type="button" className="btn-toggle-partners" onClick={() => setShowAll(!showAll)}>
+          {showAll ? "Show fewer partners ▴" : "Show checked partners ▾"}
         </button>
       )}
     </section>

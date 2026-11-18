@@ -5,16 +5,16 @@ import "./HomePage.css";
 
 const FEATURES = [
   {
-    title: "roster explorer",
+    title: "Roster Explorer",
     body: "Browse every team in your Sleeper league. See starters, bench, and full rosters at a glance.",
   },
   {
-    title: "trade analysis",
+    title: "Trade Analysis",
     body: "Backed by real NFL play-by-play data, not gut feelings. Know what you're giving up before you send the offer.",
   },
   {
-    title: "instant search",
-    body: "Find any player across all teams in seconds. No more digging through dropdown menus.",
+    title: "3D Playground",
+    body: "Explore our playground for play-by-play simulation if you're looking for deeper analysis. Investigate games for a better trade.",
   },
 ];
 

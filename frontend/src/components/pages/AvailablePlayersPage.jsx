@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { fetchJson } from "../../lib/api";
 import { useAuth } from "../../lib/AuthContext";
 import useScrollReveal from "../../hooks/useScrollReveal";
+import Select, { SelectItem } from "../ui/Select";
 import "./AvailablePlayersPage.css";
 
 const POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"];
@@ -255,7 +256,7 @@ export default function AvailablePlayersPage() {
     <div className="available-players-page">
       <main className="available-players-main reveal">
         <section aria-labelledby="available-players-heading">
-          <h1 id="available-players-heading">Available players</h1>
+          <h1 id="available-players-heading">Available Players</h1>
           <p className="available-players-intro">
             Find free agents and waiver players for your league, or see who is trending on Sleeper.
           </p>
@@ -313,36 +314,36 @@ export default function AvailablePlayersPage() {
           {leagueOptions.length > 0 && (
             <div className="available-field available-saved-leagues">
               <label htmlFor="available-saved-league">Choose a saved or opened league</label>
-              <select
+              <Select
                 id="available-saved-league"
                 value={leagueOptions.some((league) => league.league_id === leagueId) ? leagueId : ""}
-                onChange={(event) => selectLeague(event.target.value)}
+                onChange={(val) => selectLeague(val)}
+                placeholder="Select a league"
               >
-                <option value="">Select a league</option>
                 {leagueOptions.map((league) => (
-                  <option key={league.league_id} value={league.league_id}>
+                  <SelectItem key={league.league_id} value={league.league_id}>
                     {league.league_name}{league.platform === "espn" ? " · ESPN" : ""}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
 
           {leagues.length > 0 && (
             <div className="available-field available-league-select">
               <label htmlFor="available-league">Choose a league</label>
-              <select
+              <Select
                 id="available-league"
                 value={leagues.some((league) => league.league_id === leagueId) ? leagueId : ""}
-                onChange={(event) => selectLeague(event.target.value)}
+                onChange={(val) => selectLeague(val)}
+                placeholder="Select a league"
               >
-                <option value="">Select a league</option>
                 {leagues.map((league) => (
-                  <option key={league.league_id} value={league.league_id}>
+                  <SelectItem key={league.league_id} value={league.league_id}>
                     {league.name} · {league.total_rosters} teams · {league.scoring_type}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
 
@@ -373,18 +374,19 @@ export default function AvailablePlayersPage() {
                 </div>
                 <div className="available-field">
                   <label htmlFor="available-position">Position</label>
-                  <select
+                  <Select
                     id="available-position"
                     value={position}
-                    onChange={(event) => setPosition(event.target.value)}
+                    onChange={setPosition}
+                    placeholder="All positions"
                   >
-                    <option value="">All positions</option>
+                    <SelectItem value="">All positions</SelectItem>
                     {POSITIONS.map((item) => (
-                      <option key={item} value={item}>
+                      <SelectItem key={item} value={item}>
                         {item}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 {isEspn && (
                   <div className="available-field">
@@ -509,15 +511,15 @@ export default function AvailablePlayersPage() {
                 </div>
                 <div className="available-field trending-lookback">
                   <label htmlFor="trending-lookback">Activity window</label>
-                  <select
+                  <Select
                     id="trending-lookback"
                     value={lookbackHours}
-                    onChange={(event) => setLookbackHours(event.target.value)}
+                    onChange={setLookbackHours}
                   >
-                    <option value="4">Last 4 hours</option>
-                    <option value="24">Last 24 hours</option>
-                    <option value="72">Last 3 days</option>
-                  </select>
+                    <SelectItem value="4">Last 4 hours</SelectItem>
+                    <SelectItem value="24">Last 24 hours</SelectItem>
+                    <SelectItem value="72">Last 3 days</SelectItem>
+                  </Select>
                 </div>
               </div>
 

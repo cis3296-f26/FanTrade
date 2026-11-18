@@ -443,11 +443,14 @@ def trade_suggestions():
         generate_trade_suggestion, league_trade_settings, validate_suggestion_request,
     )
 
+    from trade_preferences import parse_trade_preferences
+
     try:
         # Validate selections first, then load rosters on the server so player
         # ownership and league rules don't depend on data sent by the browser.
         data = request.get_json(silent=True)
         league_id, your_id, partner_id, position = validate_suggestion_request(data)
+        preferences = parse_trade_preferences(data)
         league = load_suggestion_league(data, league_id)
         if not isinstance(league, dict) or league.get("error"):
             return jsonify({"error": "Could not load this league. Try again."}), 503
@@ -459,7 +462,9 @@ def trade_suggestions():
         values = fetch_fancalc_values(**settings)
         if not values:
             return jsonify({"error": "Player valuation data is unavailable. Try again."}), 503
-        return jsonify(generate_trade_suggestion(league, your_id, partner_id, position, values))
+        return jsonify(generate_trade_suggestion(
+            league, your_id, partner_id, position, values, preferences=preferences
+        ))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception:
@@ -473,13 +478,17 @@ def trade_compatible_partners():
     from trade_suggestions import (
         find_compatible_trade_partners,
         league_trade_settings,
-        validate_compatible_partners_request,
+        validate_compatible_partners_request, validate_verification_offset,
     )
+
+    from trade_preferences import parse_trade_preferences
 
     try:
         # Validate request body and make sure the selected team actually belongs to this league
         data = request.get_json(silent=True)
         league_id, your_id, position = validate_compatible_partners_request(data)
+        preferences = parse_trade_preferences(data)
+        offset = validate_verification_offset(data)
         league = load_suggestion_league(data, league_id)
         if not isinstance(league, dict) or league.get("error"):
             return jsonify({"error": "Could not load this league. Try again."}), 503
@@ -492,7 +501,10 @@ def trade_compatible_partners():
         if not values:
             return jsonify({"error": "Player valuation data is unavailable. Try again."}), 503
         # Scan the rest of the league rosters for mutual trade compatibility and dropoffs
-        return jsonify(find_compatible_trade_partners(league, your_id, values, target_position=position))
+        return jsonify(find_compatible_trade_partners(
+            league, your_id, values, target_position=position,
+            preferences=preferences, verification_offset=offset
+        ))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception:
