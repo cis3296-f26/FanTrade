@@ -83,20 +83,11 @@ export default function Navbar() {
   }
 
   return (
-    <nav className={`navbar${overHero ? " navbar--over-hero" : ""}`} ref={navRef}>
+    <nav className={`navbar${overHero ? " navbar--over-hero" : ""}${open ? " navbar--open" : ""}`} ref={navRef}>
       <div className="navbar-logo" onClick={() => handleNav("/")}>
         <img src={helmet} alt="" className="navbar-helmet" aria-hidden="true" />
         <span>FanTrade.</span>
       </div>
-
-      <button
-        className="navbar-hamburger"
-        aria-label="Toggle menu"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <span className={`navbar-hamburger-icon${open ? " navbar-hamburger-icon--open" : ""}`} />
-      </button>
 
       <ul className={`navbar-links${open ? " navbar-links--open" : ""}`}>
         {NAV_LINKS.map(({ label, path }) => (
@@ -132,10 +123,7 @@ export default function Navbar() {
         ) : (
           <Popover.Root open={accountOpen} onOpenChange={handleAccountOpenChange}>
             <Popover.Trigger asChild>
-              <button
-                type="button"
-                className="btn btn-ghost navbar-account-button"
-              >
+              <button type="button" className="btn btn-ghost navbar-account-button">
                 {loading ? "Sign in" : "Sign in / Register"}
               </button>
             </Popover.Trigger>
@@ -204,6 +192,15 @@ export default function Navbar() {
             </Popover.Portal>
           </Popover.Root>
         )}
+
+        <button
+          className="navbar-hamburger"
+          aria-label="Toggle menu"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span className={`navbar-hamburger-icon${open ? " navbar-hamburger-icon--open" : ""}`} />
+        </button>
       </div>
     </nav>
   );
